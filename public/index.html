@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Travel-Go — rank trips by what you actually care about</title>
+  <link rel="stylesheet" href="/styles.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='13' font-size='13'>✈️</text></svg>" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="wrap topbar-inner">
+      <h1><span aria-hidden="true">✈</span> Travel-Go</h1>
+      <p class="tagline">Rate what matters 1–5. Everything gets ranked against <em>your</em> weights, not a default one.</p>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <!-- Plain-English intake -->
+    <section class="card intake">
+      <label class="field-label" for="intake-text">Describe the trip</label>
+      <textarea id="intake-text" rows="3"
+        placeholder="e.g. SFO to Tokyo in October for 5 nights. Cheapest I can get but nonstop, morning departure. I want to be near Senso-ji and Tsukiji, and I don't care about miles."></textarea>
+      <div class="intake-actions">
+        <button id="btn-read" class="btn btn-primary" type="button">Read this &amp; set my ratings</button>
+        <span id="intake-status" class="status" role="status" aria-live="polite"></span>
+      </div>
+      <ul id="intake-notes" class="notes" hidden></ul>
+    </section>
+
+    <!-- Search parameters -->
+    <section class="card search">
+      <div class="search-grid">
+        <div class="field">
+          <label class="field-label" for="f-from">From</label>
+          <input id="f-from" list="city-list" value="San Francisco" autocomplete="off" />
+        </div>
+        <div class="field">
+          <label class="field-label" for="f-to">To</label>
+          <input id="f-to" list="city-list" value="Tokyo" autocomplete="off" />
+        </div>
+        <div class="field">
+          <label class="field-label" for="f-date">Depart</label>
+          <input id="f-date" type="date" />
+        </div>
+        <div class="field field-narrow">
+          <label class="field-label" for="f-nights">Nights</label>
+          <input id="f-nights" type="number" min="1" max="60" value="5" />
+        </div>
+        <div class="field field-narrow">
+          <label class="field-label" for="f-cabin">Cabin</label>
+          <select id="f-cabin">
+            <option value="economy">Economy</option>
+            <option value="premium">Premium</option>
+            <option value="business">Business</option>
+          </select>
+        </div>
+        <button id="btn-search" class="btn btn-primary" type="button">Search</button>
+      </div>
+      <datalist id="city-list"></datalist>
+      <p id="search-error" class="error" hidden></p>
+    </section>
+
+    <div class="tabs" role="tablist">
+      <button class="tab is-active" role="tab" aria-selected="true" data-panel="flights">Flights</button>
+      <button class="tab" role="tab" aria-selected="false" data-panel="hotels">Hotels</button>
+    </div>
+
+    <!-- Flights -->
+    <section class="panel" id="panel-flights">
+      <div class="layout">
+        <aside class="card controls">
+          <h2>How much does each matter?</h2>
+          <p class="controls-hint">1 = barely · 5 = decisive · N/A = leave it out of the maths entirely.</p>
+          <div id="flight-criteria" class="criteria"></div>
+
+          <details class="windows">
+            <summary>Preferred times of day</summary>
+            <div class="window-row">
+              <span class="window-label">Depart between</span>
+              <input type="time" id="dep-start" value="08:00" />
+              <span class="dash">–</span>
+              <input type="time" id="dep-end" value="12:00" />
+              <label class="check"><input type="checkbox" id="dep-enabled" /> use</label>
+            </div>
+            <div class="window-row">
+              <span class="window-label">Arrive between</span>
+              <input type="time" id="arr-start" value="10:00" />
+              <span class="dash">–</span>
+              <input type="time" id="arr-end" value="20:00" />
+              <label class="check"><input type="checkbox" id="arr-enabled" /> use</label>
+            </div>
+            <p class="controls-hint">Without a window, times are scored on a generic curve: 4am departures and 1am arrivals lose points.</p>
+          </details>
+        </aside>
+
+        <div class="results">
+          <div class="results-head">
+            <h2 id="flights-heading">Flights</h2>
+            <span id="flights-count" class="muted"></span>
+          </div>
+          <ol id="flight-results" class="result-list"></ol>
+        </div>
+      </div>
+    </section>
+
+    <!-- Hotels -->
+    <section class="panel" id="panel-hotels" hidden>
+      <div class="layout">
+        <aside class="card controls">
+          <h2>How much does each matter?</h2>
+          <p class="controls-hint">1 = barely · 5 = decisive · N/A = leave it out of the maths entirely.</p>
+          <div id="hotel-criteria" class="criteria"></div>
+
+          <h3 class="places-title">Places you want to be near</h3>
+          <p class="controls-hint">Rate each one too — a 5 is somewhere the whole trip is built around.</p>
+          <ul id="place-list" class="place-list"></ul>
+          <div class="place-add">
+            <input id="place-input" list="poi-list" placeholder="Add a sight or restaurant…" autocomplete="off" />
+            <datalist id="poi-list"></datalist>
+            <button id="btn-add-place" class="btn btn-small" type="button">Add</button>
+          </div>
+          <p id="place-warning" class="warn" hidden></p>
+        </aside>
+
+        <div class="results">
+          <div class="results-head">
+            <h2 id="hotels-heading">Hotels</h2>
+            <span id="hotels-count" class="muted"></span>
+          </div>
+          <ol id="hotel-results" class="result-list"></ol>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="wrap foot">
+    <p>Scores are relative to the options on screen: “cost 5” means cheapest <em>of these</em>. Inventory is generated sample data — see the README for wiring up a real supplier.</p>
+  </footer>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,17 @@
+{
+  "name": "travel-go",
+  "version": "0.1.0",
+  "description": "Preference-ranked travel search: rank flights and hotels against importance weights you set yourself.",
+  "type": "module",
+  "main": "src/index.js",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "start": "node src/server/server.js",
+    "dev": "node --watch src/server/server.js",
+    "test": "node --test"
+  },
+  "optionalDependencies": {
+    "@anthropic-ai/sdk": "^0.124.0"
+  },
+  "license": "MIT"
+}
