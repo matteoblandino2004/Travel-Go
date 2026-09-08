@@ -1,0 +1,90 @@
+{
+  "meta": { "count": 2 },
+  "data": [
+    {
+      "type": "flight-offer",
+      "id": "1",
+      "source": "GDS",
+      "numberOfBookableSeats": 7,
+      "itineraries": [
+        {
+          "duration": "PT11H35M",
+          "segments": [
+            {
+              "departure": { "iataCode": "SFO", "terminal": "I", "at": "2026-10-12T11:05:00" },
+              "arrival": { "iataCode": "HND", "terminal": "3", "at": "2026-10-13T14:40:00" },
+              "carrierCode": "NH",
+              "number": "7",
+              "aircraft": { "code": "788" },
+              "duration": "PT11H35M",
+              "id": "1",
+              "numberOfStops": 0
+            }
+          ]
+        }
+      ],
+      "price": { "currency": "USD", "total": "842.30", "base": "610.00", "grandTotal": "842.30" },
+      "validatingAirlineCodes": ["NH"],
+      "travelerPricings": [
+        {
+          "travelerId": "1",
+          "fareOption": "STANDARD",
+          "travelerType": "ADULT",
+          "fareDetailsBySegment": [
+            { "segmentId": "1", "cabin": "ECONOMY", "fareBasis": "NLXOW", "class": "N", "includedCheckedBags": { "quantity": 2 } }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "flight-offer",
+      "id": "2",
+      "source": "GDS",
+      "numberOfBookableSeats": 3,
+      "itineraries": [
+        {
+          "duration": "PT15H05M",
+          "segments": [
+            {
+              "departure": { "iataCode": "SFO", "at": "2026-10-12T07:30:00" },
+              "arrival": { "iataCode": "SEA", "at": "2026-10-12T09:45:00" },
+              "carrierCode": "UA",
+              "number": "1234",
+              "aircraft": { "code": "738" },
+              "duration": "PT2H15M",
+              "id": "2",
+              "numberOfStops": 0
+            },
+            {
+              "departure": { "iataCode": "SEA", "at": "2026-10-12T12:20:00" },
+              "arrival": { "iataCode": "NRT", "at": "2026-10-13T15:35:00" },
+              "carrierCode": "UA",
+              "number": "79",
+              "aircraft": { "code": "777" },
+              "duration": "PT10H15M",
+              "id": "3",
+              "numberOfStops": 0
+            }
+          ]
+        }
+      ],
+      "price": { "currency": "USD", "total": "611.00", "grandTotal": "611.00" },
+      "validatingAirlineCodes": ["UA"],
+      "travelerPricings": [
+        {
+          "travelerId": "1",
+          "fareOption": "STANDARD",
+          "travelerType": "ADULT",
+          "fareDetailsBySegment": [
+            { "segmentId": "2", "cabin": "ECONOMY", "class": "T", "includedCheckedBags": { "quantity": 0 } },
+            { "segmentId": "3", "cabin": "ECONOMY", "class": "T" }
+          ]
+        }
+      ]
+    }
+  ],
+  "dictionaries": {
+    "carriers": { "NH": "ALL NIPPON AIRWAYS", "UA": "UNITED AIRLINES" },
+    "aircraft": { "788": "BOEING 787-8", "738": "BOEING 737-800", "777": "BOEING 777" }
+  }
+}

@@ -268,3 +268,19 @@ textarea { resize: vertical; }
 
 .foot { color: var(--ink-3); font-size: 12.5px; padding: 28px 20px 40px; }
 .foot em { font-style: normal; color: var(--ink-2); }
+
+/* ---------- provider badge ---------- */
+
+.provider-note { margin: 12px 0 0; font-size: 12.5px; color: var(--ink-3); display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.provider-tag {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase;
+  padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line);
+}
+.provider-tag.live { color: var(--good); border-color: color-mix(in srgb, var(--good) 40%, transparent); }
+.provider-tag.sample { color: var(--ink-3); }
+.provider-warn { color: var(--bad); }
+
+/* An estimated value should never look like a quoted one. */
+.est { border-bottom: 1px dotted var(--ink-3); cursor: help; }
+.facts b .est-mark { color: var(--ink-3); font-weight: 400; font-size: 11px; }

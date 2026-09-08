@@ -53,11 +53,13 @@
             <option value="economy">Economy</option>
             <option value="premium">Premium</option>
             <option value="business">Business</option>
+            <option value="first">First</option>
           </select>
         </div>
         <button id="btn-search" class="btn btn-primary" type="button">Search</button>
       </div>
       <datalist id="city-list"></datalist>
+      <p id="provider-note" class="provider-note"></p>
       <p id="search-error" class="error" hidden></p>
     </section>
 
@@ -135,7 +137,7 @@
   </main>
 
   <footer class="wrap foot">
-    <p>Scores are relative to the options on screen: “cost 5” means cheapest <em>of these</em>. Inventory is generated sample data — see the README for wiring up a real supplier.</p>
+    <p>Scores are relative to the options on screen: “cost 5” means cheapest <em>of these</em>. Miles and lounge access are estimated from the fare, cabin and your status — no flight supplier publishes them. See the README for connecting a live supplier.</p>
   </footer>
 
   <script type="module" src="/app.js"></script>

@@ -39,7 +39,10 @@ export const FLIGHT_CRITERIA = [
     value: (f) => toMinutes(f.arriveLocal),
     scorer: (_values, ctx) => (minutes) =>
       scoreTimeOfDay(minutes, { kind: 'arrival', window: ctx?.arrivalWindow }),
-    display: (f) => `${formatMinutes(toMinutes(f.arriveLocal))}${f.arrivesNextDay ? ' +1' : ''}`,
+    display: (f) => {
+      const shift = f.dayShift ?? (f.arrivesNextDay ? 1 : 0);
+      return `${formatMinutes(toMinutes(f.arriveLocal))}${shift > 0 ? ` +${shift}` : ''}`;
+    },
   },
   {
     key: 'layovers',
@@ -56,7 +59,7 @@ export const FLIGHT_CRITERIA = [
   {
     key: 'miles',
     label: 'Miles & points',
-    hint: 'Redeemable miles plus the cash value of any elite-qualifying credit.',
+    hint: 'Redeemable miles plus elite-qualifying credit. No supplier publishes these, so they are estimated from the fare, the cabin and your status.',
     value: (f) => (f.milesEarned ?? 0) + (f.eliteQualifyingPoints ?? 0) * 2,
     scorer: (values) => relativeScorer(values, { direction: 'higher' }),
     display: (f) =>
@@ -66,7 +69,7 @@ export const FLIGHT_CRITERIA = [
   {
     key: 'lounge',
     label: 'Lounge access',
-    hint: 'Access included with this fare, at the departure airport and on connections.',
+    hint: 'Access this fare and your status actually get you. Estimated - suppliers do not publish it.',
     value: (f) => LOUNGE_TIERS[f.loungeAccess] ?? 0,
     scorer: () => (v) => v,
     display: (f) =>

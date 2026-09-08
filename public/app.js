@@ -241,6 +241,8 @@ async function runSearch() {
       places: state.places,
     });
 
+    renderProviderNote(state.search.provider);
+
     $('poi-list').innerHTML = (state.search.destination.pois ?? [])
       .map((p) => `<option value="${esc(p.name)}"></option>`)
       .join('');
@@ -295,16 +297,26 @@ function summary(ranked, total) {
 
 function flightView(result) {
   const f = result.candidate;
+  const estimated = new Set(f.estimatedFields ?? []);
+  const shift = f.dayShift ?? (f.arrivesNextDay ? 1 : 0);
+
+  // Only show a fact the supplier actually gave us. Different suppliers carry
+  // different fields, and a blank is better than "undefined".
+  const facts = [
+    ['Fare', `$${Math.round(f.priceUsd).toLocaleString('en-US')}`],
+    ['Stops', f.stops === 0 ? 'Nonstop' : `${f.stops} via ${f.layoverAirports.join(', ')}`],
+    ['Miles', f.milesEarned?.toLocaleString('en-US'), estimated.has('milesEarned')],
+    ['Lounge', { none: 'None', paid: 'Paid', partner: 'Partner', full: 'Included' }[f.loungeAccess],
+      estimated.has('loungeAccess')],
+  ];
+  if (Number.isFinite(f.onTimePct)) facts.push(['On time', `${f.onTimePct}%`]);
+  if (f.oftenDelayed) facts.push(['Note', 'Often delayed 30 min+']);
+  if (Number.isFinite(f.carbonKg)) facts.push(['CO₂', `${f.carbonKg.toLocaleString('en-US')} kg`]);
+
   return {
     title: `${f.airline} · ${f.from} → ${f.to}`,
-    subtitle: `${f.departLocal} – ${f.arriveLocal}${f.arrivesNextDay ? ' (+1 day)' : ''} · ${hours(f.durationMin)}`,
-    facts: [
-      ['Fare', `$${f.priceUsd.toLocaleString('en-US')}`],
-      ['Stops', f.stops === 0 ? 'Nonstop' : `${f.stops} via ${f.layoverAirports.join(', ')}`],
-      ['Miles', f.milesEarned.toLocaleString('en-US')],
-      ['Lounge', { none: 'None', paid: 'Paid', partner: 'Partner', full: 'Included' }[f.loungeAccess]],
-      ['On time', `${f.onTimePct}%`],
-    ],
+    subtitle: `${f.departLocal} – ${f.arriveLocal}${shift > 0 ? ` (+${shift} day${shift > 1 ? 's' : ''})` : ''} · ${hours(f.durationMin)}`,
+    facts: facts.filter(([, value]) => value != null && value !== ''),
   };
 }
 
@@ -356,7 +368,13 @@ function renderResults(list, ranked, view) {
         </div>
       </div>
       <div class="bar-track"><div class="bar" style="width:${Math.max(2, result.score)}%">${segments}</div></div>
-      <div class="facts">${v.facts.map(([k, val]) => `${esc(k)} <b>${esc(String(val))}</b>`).join('')}</div>
+      <div class="facts">${v.facts
+        .map(([k, val, isEstimate]) =>
+          isEstimate
+            ? `${esc(k)} <b><span class="est" title="Estimated from the fare, cabin and your status - no supplier publishes this">${esc(String(val))}<span class="est-mark"> est.</span></span></b>`
+            : `${esc(k)} <b>${esc(String(val))}</b>`
+        )
+        .join('')}</div>
       <div class="chips">
         ${result.pros.map((p) => `<span class="chip pro">↑ ${esc(p.label)} · ${esc(p.display)}</span>`).join('')}
         ${result.cons.map((c) => `<span class="chip con">↓ ${esc(c.label)} · ${esc(c.display)}</span>`).join('')}
@@ -467,6 +485,24 @@ function showNotes(notes) {
 /* ------------------------------------------------------------------ *
  * Utilities
  * ------------------------------------------------------------------ */
+
+/** Say plainly where the flight data came from - live, cached, or generated. */
+function renderProviderNote(provider) {
+  const el = $('provider-note');
+  if (!provider) { el.innerHTML = ''; return; }
+
+  const tag = provider.live
+    ? `<span class="provider-tag live">Live</span>`
+    : `<span class="provider-tag sample">Sample data</span>`;
+  const detail = provider.live
+    ? `Flights from ${esc(provider.label)}${provider.cached ? ' (cached)' : ''}.`
+    : `Flights are generated sample data — realistic, but not bookable.`;
+  const notes = (provider.notes ?? [])
+    .map((n) => `<span class="provider-warn">${esc(n)}</span>`)
+    .join(' ');
+
+  el.innerHTML = `${tag}<span>${detail}</span>${notes}`;
+}
 
 function showSearchError(message) {
   const el = $('search-error');

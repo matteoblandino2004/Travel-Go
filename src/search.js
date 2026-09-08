@@ -4,7 +4,8 @@
  * This is the only place that knows about both the provider and the engine.
  */
 
-import { searchFlights, searchHotels } from './data/provider.js';
+import { searchFlights } from './data/providers/index.js';
+import { searchHotels } from './data/hotel-inventory.js';
 import { findCity, findPoi } from './data/cities.js';
 import { rankFlights } from './core/flights.js';
 import { rankHotels } from './core/hotels.js';
@@ -56,20 +57,26 @@ export function resolvePlaces(places, city) {
  * @param {object} [request.departureWindow]
  * @param {object} [request.arrivalWindow]
  * @param {object} [request.profile] loyalty profile
+ * @param {object} [opts] passed through to the flight provider (`env`, `fetchImpl`, ...)
  */
-export function planTrip(request) {
+export async function planTrip(request, opts = {}) {
   const destination = findCity(request.to);
   if (!destination) throw new Error(`I don't have inventory for "${request.to}" yet.`);
 
   const { resolved, unresolved } = resolvePlaces(request.places, destination);
 
-  const flightSearch = searchFlights({
-    from: request.from,
-    to: request.to,
-    date: request.date,
-    cabin: request.cabin ?? 'economy',
-    profile: request.profile,
-  });
+  const flightSearch = await searchFlights(
+    {
+      from: request.from,
+      to: request.to,
+      date: request.date,
+      cabin: request.cabin ?? 'economy',
+      adults: request.adults,
+      maxStops: request.maxStops,
+      profile: request.profile,
+    },
+    opts
+  );
 
   const rankedFlights = rankFlights(flightSearch.offers, request.flight, {
     departureWindow: request.departureWindow,
@@ -91,6 +98,15 @@ export function planTrip(request) {
   return {
     destination: { code: destination.code, name: destination.name, country: destination.country },
     places: { resolved, unresolved },
+    // Where the flight data came from, and anything the user should know about
+    // it (a supplier that failed, offers that were unusable, a cached result).
+    provider: {
+      source: flightSearch.source,
+      label: flightSearch.label,
+      live: flightSearch.live,
+      cached: flightSearch.cached,
+      notes: flightSearch.notes,
+    },
     flights: decorate(rankedFlights),
     hotels: decorate(rankedHotels),
   };

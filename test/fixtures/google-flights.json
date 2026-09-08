@@ -1,0 +1,84 @@
+{
+  "search_metadata": { "id": "fixture", "status": "Success" },
+  "search_parameters": {
+    "engine": "google_flights", "departure_id": "SFO", "arrival_id": "TYO",
+    "outbound_date": "2026-10-12", "currency": "USD", "type": "2"
+  },
+  "best_flights": [
+    {
+      "flights": [
+        {
+          "departure_airport": { "name": "San Francisco International Airport", "id": "SFO", "time": "2026-10-12 11:05" },
+          "arrival_airport": { "name": "Haneda Airport", "id": "HND", "time": "2026-10-13 14:40" },
+          "duration": 695,
+          "airplane": "Boeing 787",
+          "airline": "ANA",
+          "airline_logo": "https://example.test/nh.png",
+          "travel_class": "Economy",
+          "flight_number": "NH 7",
+          "legroom": "34 in",
+          "extensions": ["Above average legroom (34 in)", "Wi-Fi for a fee"],
+          "overnight": true,
+          "often_delayed_by_over_30_min": false
+        }
+      ],
+      "layovers": [],
+      "total_duration": 695,
+      "carbon_emissions": { "this_flight": 1243000, "typical_for_this_route": 1310000, "difference_percent": -5 },
+      "price": 842,
+      "type": "One way",
+      "airline_logo": "https://example.test/nh.png",
+      "booking_token": "tok-best-1"
+    }
+  ],
+  "other_flights": [
+    {
+      "flights": [
+        {
+          "departure_airport": { "name": "San Francisco International Airport", "id": "SFO", "time": "2026-10-12 07:30" },
+          "arrival_airport": { "name": "Seattle-Tacoma International Airport", "id": "SEA", "time": "2026-10-12 09:45" },
+          "duration": 135,
+          "airplane": "Boeing 737",
+          "airline": "United",
+          "travel_class": "Economy",
+          "flight_number": "UA 1234",
+          "often_delayed_by_over_30_min": true
+        },
+        {
+          "departure_airport": { "name": "Seattle-Tacoma International Airport", "id": "SEA", "time": "2026-10-12 12:20" },
+          "arrival_airport": { "name": "Narita International Airport", "id": "NRT", "time": "2026-10-13 15:35" },
+          "duration": 615,
+          "airplane": "Boeing 777",
+          "airline": "United",
+          "travel_class": "Economy",
+          "flight_number": "UA 79"
+        }
+      ],
+      "layovers": [{ "duration": 155, "name": "Seattle-Tacoma International Airport", "id": "SEA", "overnight": false }],
+      "total_duration": 905,
+      "carbon_emissions": { "this_flight": 1502000 },
+      "price": 611,
+      "type": "One way",
+      "booking_token": "tok-other-1"
+    },
+    {
+      "flights": [
+        {
+          "departure_airport": { "name": "San Francisco International Airport", "id": "SFO", "time": "2026-10-12 13:15" },
+          "arrival_airport": { "name": "Haneda Airport", "id": "HND", "time": "2026-10-13 17:05" },
+          "duration": 710,
+          "airline": "Japan Airlines",
+          "travel_class": "Business",
+          "flight_number": "JL 1",
+          "overnight": true
+        }
+      ],
+      "layovers": [],
+      "total_duration": 710,
+      "price": 4180,
+      "type": "One way",
+      "booking_token": "tok-other-2"
+    }
+  ],
+  "price_insights": { "lowest_price": 611, "price_level": "typical", "typical_price_range": [600, 1400] }
+}

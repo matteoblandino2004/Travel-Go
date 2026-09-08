@@ -14,7 +14,10 @@ export { importanceToWeight, normalizeWeights, isIgnored } from './core/weights.
 export { scoreHotelAccess } from './core/poi.js';
 export { estimateTravel, haversineKm, accessScoreForMinutes } from './core/geo.js';
 export { scoreTimeOfDay, WINDOW_PRESETS } from './core/timepref.js';
-export { searchFlights, searchHotels } from './data/provider.js';
+export { searchFlights, providerStatus, resolveProvider, clearCache } from './data/providers/index.js';
+export { searchHotels } from './data/hotel-inventory.js';
+export { enrichOffer, enrichOffers, deriveEarning, deriveLounge } from './data/enrich.js';
+export { airline, airlineByName, AIRLINES_BY_CODE } from './data/airlines.js';
 export { CITIES, findCity, findPoi } from './data/cities.js';
 export { parseTripRequest } from './nl/parse.js';
 export { createServer } from './server/server.js';

@@ -6,10 +6,11 @@ and hotels are scored, ordered, and explained against those weights.
 
 ```
 npm start           # http://localhost:3000
-npm test            # 66 tests, no network needed
+npm test            # 93 tests, no network needed
 ```
 
-No dependencies are required to run it. Node 20+.
+No dependencies are required to run it. Node 20+. It runs on generated sample
+data out of the box; see [Flight data](#flight-data) to connect a real supplier.
 
 ---
 
@@ -111,11 +112,16 @@ src/core/      the scoring engine — no I/O, no dependencies, no idea where off
   rank.js        the generic weighted ranker + explanations
   flights.js     the seven flight criteria
   hotels.js      the six hotel criteria
-src/data/      cities, airports, places, and the inventory provider
+src/data/      where offers come from
+  providers/     flight suppliers: sample, google-flights (SerpApi), amadeus
+  enrich.js      derives miles, elite credit and lounge access - no feed has them
+  airlines.js    IATA codes -> alliance membership
+  cities.js      cities, airports, neighbourhoods, places
+  hotel-inventory.js
 src/nl/        plain-English intake (Claude + offline fallback)
 src/server/    zero-dependency HTTP API and static host
 public/        the front end
-test/          66 tests
+test/          93 tests, including recorded supplier responses
 ```
 
 The browser imports the **same** modules from `src/core` that the API uses, so
@@ -129,7 +135,7 @@ and server disagreeing about what a "4" means.
 ```js
 import { planTrip } from './src/index.js';
 
-const trip = planTrip({
+const trip = await planTrip({
   from: 'SFO', to: 'Tokyo', date: '2026-10-12', nights: 5,
   flight: { cost: 5, departureTime: 4, arrivalTime: 3, layovers: 5,
             miles: 'na', lounge: 2, duration: 3 },
@@ -157,21 +163,92 @@ trip.hotels.results[0].access.legs // "Senso-ji Temple — 9 min by transit"
 | `POST /api/plan` | candidates **and** ranking, for non-browser clients |
 | `POST /api/parse` | plain English → structured preferences |
 
+`GET /api/reference` also reports which flight suppliers are configured and
+which one is active.
+
 ---
+## Flight data
 
-## Real inventory
+### Google Flights has no API
 
-**Flight and hotel listings are generated sample data.** They're realistic
-enough to develop and demo against — distance-driven pricing, alliance-aware
-lounge access, loyalty tiers that actually change what you earn, real
-coordinates for every city and place — and deterministic, so changing a rating
-re-ranks the *same* market instead of shuffling in new options. But nobody
-should book off them.
+Worth stating plainly, because it shapes every option below: **Google does not
+offer a flights API.** QPX Express was retired in April 2018 and nothing public
+replaced it. There is no key to sign up for and no partner tier for individual
+developers. Anything advertising itself as a "Google Flights API" is a
+third-party service scraping the page.
 
-`src/data/provider.js` is the only file that knows where offers come from.
-Reimplement its two functions against Amadeus, Duffel, Booking, or anything
-else and the rest of the app is unchanged — nothing in `src/core` imports it.
-Two other things to replace before this is real: `estimateTravel` in
+So there are two honest routes, and Travel-Go ships an adapter for each.
+
+| | `google-flights` (SerpApi) | `amadeus` |
+|---|---|---|
+| **Data** | Exactly what Google Flights shows | Licensed GDS inventory |
+| **Cost** | Paid, from ~$50/mo | Free self-service tier |
+| **Coverage** | Everything Google aggregates, low-cost carriers included | GDS content; some low-cost carriers absent |
+| **Bookable** | No — display only | Yes — offers can be priced and booked |
+| **Standing** | Scrapes Google, against Google's ToS. Fine for a personal tool; a real risk to build a business on | Licensed, with terms and an SLA |
+
+Set whichever you have and restart — the app detects it and the header switches
+from **Sample data** to **Live**:
+
+```bash
+SERPAPI_API_KEY=...                                  # Google Flights
+AMADEUS_CLIENT_ID=... AMADEUS_CLIENT_SECRET=...      # or Amadeus
+TRAVELGO_FLIGHT_PROVIDER=amadeus                     # if both are set
+```
+
+See `.env.example`. With no key at all you get generated sample data:
+realistic, deterministic, and clearly labelled as not bookable.
+
+With a live supplier the app is no longer limited to the six catalogued cities
+for flights — any airport or metro code works (`LAX`, `SIN`, `GRU`). City names
+resolve to metro codes, so "Tokyo" searches Haneda *and* Narita, which is what
+makes the result set match what you'd see on Google Flights.
+
+### What no supplier gives you
+
+Every feed returns roughly the same facts — price, times, stops, duration,
+carrier, cabin. **None of them return miles earned, elite credit, or lounge
+access**, because all three depend on who is flying, not on the fare. Three of
+the seven things you can rank a flight on simply aren't in the data.
+
+`src/data/enrich.js` derives them from the itinerary plus your loyalty profile:
+revenue-based earning for the programmes that work that way (the US majors),
+distance-based for the rest, both with elite bonuses; lounge access from cabin,
+then alliance status, then any paid membership. Every derived value is tagged
+and rendered with a dotted underline and an `est.` marker, so an estimate never
+looks like a quoted number.
+
+### Adding another supplier
+
+`src/data/providers/` is the only place that knows where offers come from. An
+adapter exports `id`, `label`, `credentials`, `isConfigured(env)` and
+`searchFlights(query, opts)`, and routes its output through `toOffer()` in
+`providers/normalize.js`. Register it in `providers/index.js` and everything
+above — ranking, API, UI — is unchanged.
+
+Two guards worth knowing about. `keepUsable()` throws a specific error when a
+supplier returns offers but none are parseable, so a changed response shape
+shows up as *"44 offers, none usable (missing: priceUsd)"* rather than an empty
+page. And a live supplier that errors or times out falls back to sample data
+with a visible note, so an outage degrades the page instead of breaking it.
+
+Results are cached for 10 minutes per query, so dragging a rating slider
+re-ranks locally instead of re-billing a paid API. The loyalty-derived fields
+are recomputed after the cache, so changing your status updates immediately.
+
+Adapters are covered by fixture tests (`test/fixtures/`) that need no keys and
+no network — including one asserting that the same two itineraries parse to
+identical numbers through both suppliers.
+
+> **Both adapters are written against published documentation and tested
+> against recorded responses; neither has been run against a live account.**
+> Expect to correct a field name or two on first contact with a real key — the
+> mapping tables sit at the top of each adapter for exactly that reason.
+
+### Still generated
+
+Hotels (`src/data/hotel-inventory.js`) are sample data behind the same kind of
+seam. Two other things to replace before this is real: `estimateTravel` in
 `src/core/geo.js` (swap the distance model for a directions API; everything
 downstream only reads `{minutes, mode}`), and the fixed `utcOffset` per city in
 `src/data/cities.js`, which should be a proper IANA time zone.

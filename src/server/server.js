@@ -13,7 +13,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { CITIES } from '../data/cities.js';
-import { searchFlights, searchHotels } from '../data/provider.js';
+import { searchFlights, providerStatus } from '../data/providers/index.js';
+import { searchHotels } from '../data/hotel-inventory.js';
 import { FLIGHT_CRITERIA } from '../core/flights.js';
 import { HOTEL_CRITERIA } from '../core/hotels.js';
 import { WINDOW_PRESETS } from '../core/timepref.js';
@@ -51,18 +52,24 @@ const routes = {
     hotelCriteria: criteriaMeta(HOTEL_CRITERIA),
     windowPresets: WINDOW_PRESETS,
     aiAvailable: Boolean(process.env.ANTHROPIC_API_KEY ?? process.env.ANTHROPIC_AUTH_TOKEN),
+    flightProvider: providerStatus(),
   }),
 
   /** Candidates only - the browser ranks them itself. */
   'POST /api/search': async (body) => {
+    // Hotels still need a city we hold places and neighbourhoods for; flights
+    // don't, so a live provider isn't limited to the sample catalogue.
     const destination = findCity(body.to);
-    if (!destination) throw httpError(400, `No inventory for "${body.to}".`);
+    if (!destination) throw httpError(400, `No hotel inventory for "${body.to}".`);
     const { resolved, unresolved } = resolvePlaces(body.places, destination);
-    const flights = searchFlights({
+
+    const flights = await searchFlights({
       from: body.from,
       to: body.to,
       date: body.date,
       cabin: body.cabin ?? 'economy',
+      adults: body.adults,
+      maxStops: body.maxStops,
       profile: body.profile,
     });
     const hotels = searchHotels({
@@ -71,6 +78,7 @@ const routes = {
       checkIn: body.date,
       profile: body.profile,
     });
+
     return {
       destination: {
         code: destination.code,
@@ -80,6 +88,13 @@ const routes = {
         pois: destination.pois,
       },
       places: { resolved, unresolved },
+      provider: {
+        source: flights.source,
+        label: flights.label,
+        live: flights.live,
+        cached: flights.cached,
+        notes: flights.notes,
+      },
       offers: flights.offers,
       hotels: hotels.hotels,
     };
