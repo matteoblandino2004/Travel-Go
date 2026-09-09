@@ -6,10 +6,11 @@ and hotels are scored, ordered, and explained against those weights.
 
 ```
 npm start           # http://localhost:3000
-npm test            # 93 tests, no network needed
+npm test            # 149 tests, no network needed
 ```
 
-No dependencies are required to run it. Node 20+. It runs on generated sample
+No dependencies are required to run it. Node 20+. It covers **every city with
+an airport** — 7,916 of them, in 236 countries — and runs on generated sample
 data out of the box; see [Flight data](#flight-data) to connect a real supplier.
 
 ---
@@ -23,9 +24,9 @@ lounge access · total trip time
 flexibility
 
 Plus a list of **places you want to be near**. Name the sights and restaurants
-you're actually going for, rate each one 1–5, and hotels get scored on how long
-it takes to reach them — so "cheap" stops meaning "cheap and forty minutes from
-everything you came for".
+you're actually going for — anywhere in the world, they get geocoded — rate
+each one 1–5, and hotels get scored on how long it takes to reach them. So
+"cheap" stops meaning "cheap and forty minutes from everything you came for".
 
 Every rating is live: move one and the list re-orders instantly.
 
@@ -113,15 +114,19 @@ src/core/      the scoring engine — no I/O, no dependencies, no idea where off
   flights.js     the seven flight criteria
   hotels.js      the six hotel criteria
 src/data/      where offers come from
+  airports.json  7,916 airports: codes, names, coordinates, timezones
+  airports.js    resolves "Tbilisi", "Haneda" or "KTM" to somewhere real
   providers/     flight suppliers: sample, google-flights (SerpApi), amadeus
+  hotels/        hotel suppliers: sample (anywhere), amadeus
+  geocode/       place names -> coordinates, for any city
   enrich.js      derives miles, elite credit and lounge access - no feed has them
   airlines.js    IATA codes -> alliance membership
-  cities.js      cities, airports, neighbourhoods, places
-  hotel-inventory.js
+  transit.js     how easy a city is to cross, per city
+  cities.js      curated places for the cities we hand-checked
 src/nl/        plain-English intake (Claude + offline fallback)
 src/server/    zero-dependency HTTP API and static host
 public/        the front end
-test/          93 tests, including recorded supplier responses
+test/          149 tests, including recorded supplier responses
 ```
 
 The browser imports the **same** modules from `src/core` that the API uses, so
@@ -162,9 +167,11 @@ trip.hotels.results[0].access.legs // "Senso-ji Temple — 9 min by transit"
 | `POST /api/search` | candidates only — the browser ranks them itself |
 | `POST /api/plan` | candidates **and** ranking, for non-browser clients |
 | `POST /api/parse` | plain English → structured preferences |
+| `GET /api/places?q=` | autocomplete over all 7,916 airports and metros |
+| `POST /api/geocode` | locate one named place near a destination |
 
-`GET /api/reference` also reports which flight suppliers are configured and
-which one is active.
+`GET /api/reference` also reports which suppliers and geocoder are configured,
+which are active, and how many airports are covered.
 
 ---
 ## Flight data
@@ -198,11 +205,6 @@ TRAVELGO_FLIGHT_PROVIDER=amadeus                     # if both are set
 
 See `.env.example`. With no key at all you get generated sample data:
 realistic, deterministic, and clearly labelled as not bookable.
-
-With a live supplier the app is no longer limited to the six catalogued cities
-for flights — any airport or metro code works (`LAX`, `SIN`, `GRU`). City names
-resolve to metro codes, so "Tokyo" searches Haneda *and* Narita, which is what
-makes the result set match what you'd see on Google Flights.
 
 ### What no supplier gives you
 
@@ -245,10 +247,66 @@ identical numbers through both suppliers.
 > Expect to correct a field name or two on first contact with a real key — the
 > mapping tables sit at the top of each adapter for exactly that reason.
 
+### Covering every city
+
+Going from six cities to all of them meant solving four separate data problems.
+Each has its own seam, and each degrades honestly when the layer below is
+missing.
+
+**1. Which city do you mean?** `src/data/airports.json` holds every airport
+with an IATA code — 7,916 across 236 countries, with coordinates and IANA
+timezones, built by `scripts/build-airports.mjs` from
+[mwgg/Airports](https://github.com/mwgg/Airports) (MIT) and committed so there
+is no build step and no network call.
+
+Resolution is more than a lookup. A city name resolves to its **metropolitan
+code** where one exists, so "Tokyo" searches Haneda *and* Narita and "New York"
+covers Newark — the thing that makes results match a city search on Google
+Flights. Airports serving one city collapse into one choice, while three
+genuinely different Jacksonvilles stay three. Where the answer is
+uncertain the app picks the likeliest and offers the rest as one-click
+corrections, rather than refusing to search until you are more specific:
+
+```
+London  →  London (LON) — all airports (LCY, LGW, LHR, LTN, SEN, STN)
+           Did you mean London (YXU) — Ontario · London (LOZ) — Kentucky
+```
+
+Two details that took a second pass. Ranking uses airport *names* as a
+significance proxy, because the dataset has no passenger figures — "Jacksonville
+International" is what people mean, "Jacksonville Municipal" and "RAF Northolt"
+are not; without it, typing "tok" offered Tok, Alaska ahead of Tokyo. And a
+short alias table covers the names people actually use (Haneda, Orly, Saigon,
+Sheremetyevo), since the source calls HND "Tokyo International Airport".
+
+**2. Where is the city centre?** Needed to place hotels and to bias place
+lookups. Curated coordinates for catalogued cities, otherwise the geocoder,
+otherwise the centroid of the airports serving it — which is 15 km out for
+Tokyo, so that last case is flagged `approximate` and the UI says
+so plainly rather than quietly ranking hotels around an airport.
+
+**3. Where is the place I named?** `src/data/geocode/` resolves "Torre de
+Belém" or "Chronicle of Georgia" against [Nominatim](https://nominatim.org/)
+— free, keyless, and the default so the app works for everyone without a
+signup. Its usage policy caps you at one request a second, which the seam
+enforces with a serialised queue; results are cached for 30 days because
+museums do not move. Set `NOMINATIM_URL` to self-host, or
+`TRAVELGO_GEOCODER=none` to switch it off. Nearby matches beat globally famous
+ones — searching "Victoria" while planning Hong Kong means the harbour.
+
+**4. Hotels, and how hard is it to get around?** `src/data/hotels/` mirrors the
+flight seam: Amadeus Hotel Search (same free credentials, global) or generated
+inventory placed on rings around whatever centre it is given, priced against a
+per-country cost index so Zurich does not cost what Hanoi costs.
+`src/data/transit.js` supplies the one number the travel-time model needs, per
+destination: a curated value for metros where the answer is well known, then a
+country default, then 0.5. It is a blunt instrument and says which tier it
+used — but "Tokyo is easier to cross than Houston" is the part that moves a
+ranking, and that part it gets right.
+
 ### Still generated
 
-Hotels (`src/data/hotel-inventory.js`) are sample data behind the same kind of
-seam. Two other things to replace before this is real: `estimateTravel` in
-`src/core/geo.js` (swap the distance model for a directions API; everything
-downstream only reads `{minutes, mode}`), and the fixed `utcOffset` per city in
-`src/data/cities.js`, which should be a proper IANA time zone.
+Hotels default to generated inventory, and the flight sample market is
+invented — both work for any city, neither is bookable. Timezone handling is
+now real (IANA zones with DST), which is what makes local arrival times correct
+on any route.

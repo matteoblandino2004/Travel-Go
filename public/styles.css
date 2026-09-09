@@ -284,3 +284,10 @@ textarea { resize: vertical; }
 /* An estimated value should never look like a quoted one. */
 .est { border-bottom: 1px dotted var(--ink-3); cursor: help; }
 .facts b .est-mark { color: var(--ink-3); font-weight: 400; font-size: 11px; }
+
+.alts { color: var(--ink-3); }
+.alt-link {
+  background: none; border: none; padding: 0 2px; cursor: pointer;
+  color: var(--accent); font-size: 12.5px; text-decoration: underline;
+}
+.alt-link:hover { filter: brightness(1.15); }

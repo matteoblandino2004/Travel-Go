@@ -1,7 +1,11 @@
 /**
- * Reference data: cities, their airports, and a starter set of places people
- * actually go. Users can add their own places (any name + coordinates) - this
- * catalogue only exists so the app is useful the first time you open it.
+ * Curated places, for the handful of cities we hold hand-checked data for.
+ *
+ * This is NO LONGER the city registry - airports.js resolves destinations for
+ * the whole world, and the geocoder locates places anywhere. What survives
+ * here is a fast, offline, hand-checked path for cities we happen to cover:
+ * a starter set of places worth going to, and neighbourhood names that read
+ * better than "Inner north" when placing generated hotels.
  *
  * `transitQuality` (0..1) feeds the travel-time model in core/geo.js.
  * `utcOffset` is a fixed hour offset - good enough to compute local arrival

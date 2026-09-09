@@ -8,6 +8,7 @@ import * as googleFlights from '../src/data/providers/serpapi.js';
 import * as amadeus from '../src/data/providers/amadeus.js';
 import * as sample from '../src/data/providers/sample.js';
 import { searchFlights, resolveProvider, resolveLocationCode, providerStatus, clearCache } from '../src/data/providers/index.js';
+import { resolvePlace } from '../src/data/airports.js';
 import { deriveEarning, deriveLounge, enrichOffer } from '../src/data/enrich.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -280,11 +281,15 @@ test('an explicit choice is honoured, and refused when unconfigured', () => {
 });
 
 test('city names become the metro codes a supplier expects', () => {
-  assert.equal(resolveLocationCode('Tokyo'), 'TYO');
+  assert.equal(resolveLocationCode('Tokyo'), 'TYO', 'metro code covers Haneda and Narita');
   assert.equal(resolveLocationCode('New York'), 'NYC');
-  assert.equal(resolveLocationCode('Haneda'), 'TYO');
-  assert.equal(resolveLocationCode('lax'), 'LAX', 'an unknown airport code passes through');
-  assert.throws(() => resolveLocationCode('somewhere nice'), /3-letter airport code/);
+  assert.equal(resolveLocationCode('Haneda'), 'HND', 'a named airport resolves to that airport');
+  assert.equal(resolveLocationCode('lax'), 'LAX');
+  // Cities that were never in the hand-written catalogue now resolve too.
+  assert.equal(resolveLocationCode('Lisbon'), 'LIS');
+  assert.equal(resolveLocationCode('Tbilisi'), 'TBS');
+  assert.equal(resolveLocationCode('Kathmandu'), 'KTM');
+  assert.throws(() => resolveLocationCode('qqzzxx nowhere'), /can't find anywhere/);
 });
 
 test('a live supplier failing falls back to sample data with a note', async () => {
@@ -343,7 +348,11 @@ test('the profile is applied after caching, so status changes are not stale', as
 });
 
 test('the sample provider emits the same partial shape a real feed does', async () => {
-  const { offers } = await sample.searchFlights({ from: 'SFO', to: 'Tokyo', date: '2026-10-12' });
+  const { offers } = await sample.searchFlights({
+    origin: resolvePlace('SFO').place,
+    destination: resolvePlace('Tokyo').place,
+    date: '2026-10-12',
+  });
   assert.ok(offers.length > 0);
   for (const offer of offers) {
     assert.equal(offer.milesEarned, undefined, 'earning is derived, never generated');

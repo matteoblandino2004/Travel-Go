@@ -10,7 +10,6 @@
 import { rankFlights, FLIGHT_CRITERIA } from '/src/core/flights.js';
 import { rankHotels, HOTEL_CRITERIA } from '/src/core/hotels.js';
 import { explain } from '/src/core/rank.js';
-import { findPoi } from '/src/data/cities.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -47,10 +46,6 @@ async function init() {
   renderCriteria($('flight-criteria'), FLIGHT_CRITERIA, state.flight, rerender);
   renderCriteria($('hotel-criteria'), HOTEL_CRITERIA, state.hotel, rerender);
 
-  $('city-list').innerHTML = state.reference.cities
-    .map((c) => `<option value="${esc(c.name)}"></option>`)
-    .join('');
-
   $('f-date').value = defaultDate();
   wireEvents();
   await runSearch();
@@ -64,6 +59,7 @@ function defaultDate() {
 
 function wireEvents() {
   $('btn-search').addEventListener('click', () => runSearch());
+  for (const id of ['f-from', 'f-to']) wirePlaceAutocomplete($(id));
   $('btn-read').addEventListener('click', () => readIntake());
   $('btn-add-place').addEventListener('click', () => addPlaceFromInput());
   $('place-input').addEventListener('keydown', (e) => {
@@ -85,6 +81,31 @@ function wireEvents() {
   for (const id of ['dep-start', 'dep-end', 'dep-enabled', 'arr-start', 'arr-end', 'arr-enabled']) {
     $(id).addEventListener('change', () => { readWindows(); rerender(); });
   }
+}
+
+/**
+ * Suggest airports and cities as the user types, from the full 7,916-airport
+ * dataset. Debounced, because it's a request per keystroke otherwise.
+ */
+function wirePlaceAutocomplete(input) {
+  let timer = null;
+  let lastQuery = '';
+  input.addEventListener('input', () => {
+    const query = input.value.trim();
+    if (query.length < 2 || query === lastQuery) return;
+    clearTimeout(timer);
+    timer = setTimeout(async () => {
+      lastQuery = query;
+      try {
+        const { results } = await getJson(`/api/places?q=${encodeURIComponent(query)}&limit=8`);
+        $('city-list').innerHTML = results
+          .map((r) => `<option value="${esc(r.name)}">${esc(r.label)}</option>`)
+          .join('');
+      } catch {
+        /* suggestions are a convenience; typing still works without them */
+      }
+    }, 180);
+  });
 }
 
 function readWindows() {
@@ -153,21 +174,47 @@ function addPlaceFromInput() {
   input.focus();
 }
 
-function addPlace(place) {
-  const city = currentCity();
-  const match = city ? findPoi(city, place.name) : null;
-  const located = place.lat != null && place.lng != null;
-
-  state.places.push({
-    name: match ? match.name : place.name,
-    kind: place.kind ?? match?.kind ?? 'other',
+/**
+ * Add a place and locate it. Coordinates are resolved once, on the server
+ * (curated catalogue first, then the geocoder); after that every rating change
+ * re-ranks locally with no round trip.
+ */
+async function addPlace(place) {
+  const entry = {
+    name: place.name,
+    kind: place.kind ?? 'other',
     importance: place.importance ?? 4,
-    lat: located ? place.lat : match?.lat,
-    lng: located ? place.lng : match?.lng,
-    unlocated: !located && !match,
-  });
+    lat: place.lat,
+    lng: place.lng,
+    unlocated: place.lat == null || place.lng == null,
+    locating: place.lat == null || place.lng == null,
+  };
+  state.places.push(entry);
   renderPlaces();
-  rerender();
+
+  if (!entry.locating) {
+    rerender();
+    return;
+  }
+
+  try {
+    const { place: located } = await postJson('/api/geocode', { name: entry.name, to: $('f-to').value });
+    if (located) {
+      Object.assign(entry, {
+        name: located.name ?? entry.name,
+        lat: located.lat,
+        lng: located.lng,
+        kind: entry.kind === 'other' ? located.kind ?? 'other' : entry.kind,
+        unlocated: false,
+      });
+    }
+  } catch {
+    /* leave it flagged as unlocated */
+  } finally {
+    entry.locating = false;
+    renderPlaces();
+    rerender();
+  }
 }
 
 function renderPlaces() {
@@ -178,7 +225,9 @@ function renderPlaces() {
     li.className = 'place-item';
     li.innerHTML = `
       <span class="place-name" title="${esc(place.name)}">${esc(place.name)}
-        <span class="place-kind">${place.unlocated ? '· not found' : `· ${esc(place.kind)}`}</span>
+        <span class="place-kind">${
+          place.locating ? '· locating…' : place.unlocated ? '· not found' : `· ${esc(place.kind)}`
+        }</span>
       </span>`;
 
     const select = document.createElement('select');
@@ -208,19 +257,12 @@ function renderPlaces() {
     list.append(li);
   }
 
-  const missing = state.places.filter((p) => p.unlocated).map((p) => p.name);
+  const missing = state.places.filter((p) => p.unlocated && !p.locating).map((p) => p.name);
   const warning = $('place-warning');
   warning.hidden = missing.length === 0;
   warning.textContent = missing.length
     ? `Couldn't place ${missing.join(', ')} on the map, so ${missing.length > 1 ? 'they are' : 'it is'} not affecting the ranking.`
     : '';
-}
-
-function currentCity() {
-  const code = state.search?.destination?.code;
-  if (!code) return null;
-  const city = state.reference.cities.find((c) => c.code === code);
-  return city ? { pois: city.pois } : null;
 }
 
 /* ------------------------------------------------------------------ *
@@ -238,21 +280,15 @@ async function runSearch() {
       date: $('f-date').value,
       nights: Number($('f-nights').value) || 3,
       cabin: $('f-cabin').value,
-      places: state.places,
+      places: state.places.filter((p) => p.lat != null),
     });
 
-    renderProviderNote(state.search.provider);
+    renderProviderNote(state.search);
 
     $('poi-list').innerHTML = (state.search.destination.pois ?? [])
       .map((p) => `<option value="${esc(p.name)}"></option>`)
       .join('');
 
-    // Re-locate any place the user added before the destination was known.
-    for (const place of state.places) {
-      if (place.lat != null) continue;
-      const match = findPoi(currentCity(), place.name);
-      if (match) Object.assign(place, { lat: match.lat, lng: match.lng, kind: match.kind, unlocated: false });
-    }
     renderPlaces();
     rerender();
   } catch (error) {
@@ -486,22 +522,57 @@ function showNotes(notes) {
  * Utilities
  * ------------------------------------------------------------------ */
 
-/** Say plainly where the flight data came from - live, cached, or generated. */
-function renderProviderNote(provider) {
+/**
+ * Say plainly where the data came from and what we had to guess: which
+ * suppliers answered, whether the city centre is a real location or the
+ * airport standing in for one, and what else the destination could have meant.
+ */
+function renderProviderNote(search) {
   const el = $('provider-note');
-  if (!provider) { el.innerHTML = ''; return; }
+  if (!search) { el.innerHTML = ''; return; }
 
-  const tag = provider.live
-    ? `<span class="provider-tag live">Live</span>`
-    : `<span class="provider-tag sample">Sample data</span>`;
-  const detail = provider.live
-    ? `Flights from ${esc(provider.label)}${provider.cached ? ' (cached)' : ''}.`
-    : `Flights are generated sample data — realistic, but not bookable.`;
-  const notes = (provider.notes ?? [])
+  const parts = [];
+  for (const [what, provider] of [['Flights', search.provider], ['Hotels', search.hotelProvider]]) {
+    if (!provider) continue;
+    const tag = provider.live
+      ? `<span class="provider-tag live">Live</span>`
+      : `<span class="provider-tag sample">Sample</span>`;
+    parts.push(
+      `${tag}<span>${what}: ${esc(provider.live ? provider.label : 'generated data')}${
+        provider.cached ? ' (cached)' : ''
+      }</span>`
+    );
+  }
+
+  const destination = search.destination ?? {};
+  if (destination.centre?.approximate) {
+    parts.push(
+      `<span class="provider-warn">No geocoder, so hotels are placed around ${esc(
+        destination.airports?.[0] ?? 'the airport'
+      )} rather than the city centre.</span>`
+    );
+  }
+
+  // "Did you mean London, Ontario?" - one click to switch.
+  if (destination.alternatives?.length) {
+    const links = destination.alternatives
+      .map((a) => `<button type="button" class="alt-link" data-code="${esc(a.code)}">${esc(a.label)}</button>`)
+      .join(' ');
+    parts.push(`<span class="alts">Did you mean ${links}</span>`);
+  }
+
+  const notes = [...(search.provider?.notes ?? []), ...(search.hotelProvider?.notes ?? [])]
     .map((n) => `<span class="provider-warn">${esc(n)}</span>`)
     .join(' ');
 
-  el.innerHTML = `${tag}<span>${detail}</span>${notes}`;
+  el.innerHTML = parts.join(' · ') + (notes ? ` ${notes}` : '');
+
+  for (const button of el.querySelectorAll('.alt-link')) {
+    button.addEventListener('click', () => {
+      $('f-to').value = button.dataset.code;
+      runSearch();
+    });
+  }
 }
 
 function showSearchError(message) {

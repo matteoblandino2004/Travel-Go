@@ -12,15 +12,15 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { CITIES } from '../data/cities.js';
-import { searchFlights, providerStatus } from '../data/providers/index.js';
-import { searchHotels } from '../data/hotel-inventory.js';
+import { searchFlights, providerStatus as flightProviderStatus } from '../data/providers/index.js';
+import { searchHotels, providerStatus as hotelProviderStatus } from '../data/hotels/index.js';
+import { searchPlaces, describePlace, datasetInfo } from '../data/airports.js';
+import { geocoderStatus, geocodePlace } from '../data/geocode/index.js';
 import { FLIGHT_CRITERIA } from '../core/flights.js';
 import { HOTEL_CRITERIA } from '../core/hotels.js';
 import { WINDOW_PRESETS } from '../core/timepref.js';
-import { planTrip, resolvePlaces } from '../search.js';
+import { planTrip, resolvePlaces, resolveEndpoint, destinationContext } from '../search.js';
 import { parseTripRequest } from '../nl/parse.js';
-import { findCity } from '../data/cities.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const PORT = Number(process.env.PORT ?? 3000);
@@ -41,63 +41,105 @@ const criteriaMeta = (criteria) =>
 
 const routes = {
   'GET /api/reference': async () => ({
-    cities: Object.values(CITIES).map((c) => ({
-      code: c.code,
-      name: c.name,
-      country: c.country,
-      airports: c.airports.map((a) => ({ code: a.code, name: a.name })),
-      pois: c.pois,
-    })),
     flightCriteria: criteriaMeta(FLIGHT_CRITERIA),
     hotelCriteria: criteriaMeta(HOTEL_CRITERIA),
     windowPresets: WINDOW_PRESETS,
     aiAvailable: Boolean(process.env.ANTHROPIC_API_KEY ?? process.env.ANTHROPIC_AUTH_TOKEN),
-    flightProvider: providerStatus(),
+    flightProvider: flightProviderStatus(),
+    hotelProvider: hotelProviderStatus(),
+    geocoder: geocoderStatus(),
+    coverage: datasetInfo(),
   }),
 
+  /** Autocomplete over every airport and metropolitan area on earth. */
+  'GET /api/places': async (_body, url) => {
+    const query = url.searchParams.get('q') ?? '';
+    const limit = Math.min(20, Number(url.searchParams.get('limit')) || 8);
+    return {
+      results: searchPlaces(query, { limit }).map((place) => ({
+        code: place.code,
+        name: place.city,
+        label: describePlace(place),
+        country: place.country,
+        kind: place.kind,
+        airports: place.kind === 'metro' ? place.airports.map((a) => a.code) : [place.code],
+      })),
+    };
+  },
+
+  /** Candidates only - the browser ranks them itself. */
   /** Candidates only - the browser ranks them itself. */
   'POST /api/search': async (body) => {
-    // Hotels still need a city we hold places and neighbourhoods for; flights
-    // don't, so a live provider isn't limited to the sample catalogue.
-    const destination = findCity(body.to);
-    if (!destination) throw httpError(400, `No hotel inventory for "${body.to}".`);
-    const { resolved, unresolved } = resolvePlaces(body.places, destination);
+    let origin;
+    let destination;
+    try {
+      origin = resolveEndpoint(body.from, 'origin');
+      destination = resolveEndpoint(body.to, 'destination');
+    } catch (error) {
+      throw httpError(400, error.message);
+    }
+    if (origin.place.code === destination.place.code) {
+      throw httpError(400, `Origin and destination are both ${describePlace(origin.place)}.`);
+    }
 
-    const flights = await searchFlights({
-      from: body.from,
-      to: body.to,
-      date: body.date,
-      cabin: body.cabin ?? 'economy',
-      adults: body.adults,
-      maxStops: body.maxStops,
-      profile: body.profile,
-    });
-    const hotels = searchHotels({
-      city: body.to,
-      nights: body.nights ?? 3,
-      checkIn: body.date,
-      profile: body.profile,
-    });
+    const context = await destinationContext(destination.place);
+    const { resolved, unresolved } = await resolvePlaces(
+      body.places,
+      destination.place,
+      context.centre
+    );
+
+    const [flights, hotels] = await Promise.all([
+      searchFlights({
+        origin: origin.place,
+        destination: destination.place,
+        date: body.date,
+        cabin: body.cabin ?? 'economy',
+        adults: body.adults,
+        maxStops: body.maxStops,
+        profile: body.profile,
+      }),
+      searchHotels({
+        destination: context.destination,
+        nights: body.nights ?? 3,
+        checkIn: body.date,
+        adults: body.adults,
+        profile: body.profile,
+      }),
+    ]);
 
     return {
-      destination: {
-        code: destination.code,
-        name: destination.name,
-        country: destination.country,
-        transitQuality: destination.transitQuality,
-        pois: destination.pois,
-      },
+      origin: endpointSummary(origin),
+      destination: { ...endpointSummary(destination), ...context.summary },
       places: { resolved, unresolved },
-      provider: {
-        source: flights.source,
-        label: flights.label,
-        live: flights.live,
-        cached: flights.cached,
-        notes: flights.notes,
-      },
+      provider: summariseProvider(flights),
+      hotelProvider: summariseProvider(hotels),
       offers: flights.offers,
       hotels: hotels.hotels,
     };
+  },
+
+  /**
+   * Locate one named place near a destination.
+   * The browser calls this as places are added, then keeps re-ranking locally
+   * as ratings change - geocoding needs the server, re-scoring doesn't.
+   */
+  'POST /api/geocode': async (body) => {
+    let destination = null;
+    if (body.to) {
+      try {
+        destination = resolveEndpoint(body.to, 'destination').place;
+      } catch {
+        destination = null;
+      }
+    }
+    const located = await geocodePlace(body.name, {
+      city: destination?.city,
+      cityCode: destination?.code,
+      country: destination?.country,
+      near: destination ? { lat: destination.lat, lng: destination.lng } : undefined,
+    });
+    return { place: located };
   },
 
   /** Candidates *and* ranking, for API clients that don't run the core in-process. */
@@ -105,6 +147,26 @@ const routes = {
 
   'POST /api/parse': async (body) => parseTripRequest(body.text, { model: body.model }),
 };
+
+function endpointSummary({ place, alternatives }) {
+  return {
+    code: place.code,
+    name: place.city,
+    label: describePlace(place),
+    country: place.country,
+    kind: place.kind,
+    airports: place.kind === 'metro' ? place.airports.map((a) => a.code) : [place.code],
+    alternatives: (alternatives ?? []).map((a) => ({ code: a.code, label: describePlace(a) })),
+  };
+}
+
+const summariseProvider = (search) => ({
+  source: search.source,
+  label: search.label,
+  live: search.live,
+  cached: search.cached,
+  notes: search.notes ?? [],
+});
 
 function httpError(status, message) {
   const err = new Error(message);

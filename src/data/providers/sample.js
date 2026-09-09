@@ -1,17 +1,18 @@
 /**
- * Generated sample inventory - the default when no supplier is configured.
+ * Generated flight inventory - for any route, not just catalogued cities.
  *
- * Deterministic for a given query, so changing an importance rating re-ranks
- * the same market instead of shuffling in new options. Realistic enough to
- * develop and demo against; not real enough to book.
+ * Deterministic per query, so changing an importance rating re-ranks the same
+ * market instead of shuffling in new options. It works off resolved airports
+ * from airports.js, which is what lets it invent a plausible Lisbon-Tbilisi
+ * market as readily as San Francisco-Tokyo.
  *
- * It deliberately emits the *same* partial shape a real feed does - no miles,
+ * It deliberately emits the same *partial* shape a real feed does - no miles,
  * no lounge field - so the enrichment path is exercised in development rather
  * than only in production.
  */
 
-import { CITIES, findCity } from '../cities.js';
-import { AIRLINES_BY_CODE, airline } from '../airlines.js';
+import { AIRLINES_BY_CODE } from '../airlines.js';
+import { utcOffsetHours, airportsFor } from '../airports.js';
 import { haversineKm } from '../../core/geo.js';
 import { toOffer, keepUsable } from './normalize.js';
 
@@ -51,49 +52,92 @@ const CONNECTION_HUBS = {
   none: ['STN', 'BGY'],
 };
 
-/** Carriers the sample market draws from, with a price index per carrier. */
-const SAMPLE_CARRIERS = ['UA', 'NH', 'LH', 'AA', 'BA', 'JL', 'DL', 'AF', 'KL', 'FR', 'VS']
+const SAMPLE_CARRIERS = ['UA', 'NH', 'LH', 'AA', 'BA', 'JL', 'DL', 'AF', 'KL', 'FR', 'VS', 'EK', 'QR', 'TK', 'SQ', 'QF', 'LA', 'ET']
   .map((code) => AIRLINES_BY_CODE[code])
   .filter(Boolean);
 
-const PRICE_INDEX = { UA: 1.0, NH: 1.12, LH: 1.06, AA: 0.97, BA: 1.05, JL: 1.1, DL: 1.03, AF: 1.02, KL: 1.0, FR: 0.62, VS: 1.04 };
-const QUALITY = { UA: 0.72, NH: 0.93, LH: 0.8, AA: 0.68, BA: 0.78, JL: 0.92, DL: 0.81, AF: 0.76, KL: 0.77, FR: 0.42, VS: 0.83 };
+const PRICE_INDEX = {
+  UA: 1.0, NH: 1.12, LH: 1.06, AA: 0.97, BA: 1.05, JL: 1.1, DL: 1.03, AF: 1.02,
+  KL: 1.0, FR: 0.62, VS: 1.04, EK: 1.08, QR: 1.06, TK: 0.92, SQ: 1.14, QF: 1.09,
+  LA: 0.95, ET: 0.88,
+};
+const QUALITY = {
+  UA: 0.72, NH: 0.93, LH: 0.8, AA: 0.68, BA: 0.78, JL: 0.92, DL: 0.81, AF: 0.76,
+  KL: 0.77, FR: 0.42, VS: 0.83, EK: 0.88, QR: 0.91, TK: 0.75, SQ: 0.94, QF: 0.85,
+  LA: 0.7, ET: 0.65,
+};
 
-export async function searchFlights(query, opts = {}) {
-  const origin = findCity(query.from ?? query.fromAirport);
-  const destination = findCity(query.to ?? query.toAirport);
-  if (!origin) throw new Error(`No sample inventory for origin "${query.from ?? query.fromAirport}".`);
-  if (!destination) throw new Error(`No sample inventory for destination "${query.to ?? query.toAirport}".`);
-  if (origin.code === destination.code) throw new Error('Origin and destination are the same city.');
+/**
+ * Which part of the world an airport is in, from its IANA timezone.
+ *
+ * Cheaper and more current than a country-to-continent table, and it only
+ * needs to be right enough to decide which carriers plausibly serve a route.
+ */
+export function regionOf(airport) {
+  const zone = String(airport.tz ?? '');
+  const area = zone.split('/')[0];
+  switch (area) {
+    case 'Europe': return 'europe';
+    case 'Asia': return zone.startsWith('Asia/Dubai') || /Asia\/(Qatar|Riyadh|Kuwait|Bahrain|Muscat|Tehran|Jerusalem|Amman|Beirut|Baghdad)/.test(zone) ? 'meast' : 'asia';
+    case 'Africa': return 'africa';
+    case 'Australia': return 'oceania';
+    case 'Pacific': return 'oceania';
+    case 'Indian': return 'asia';
+    case 'America':
+      // One zone name covers two continents; latitude separates them.
+      return airport.lat > 12 ? 'namerica' : 'samerica';
+    case 'Atlantic': return 'europe';
+    default: return null;
+  }
+}
 
+/**
+ * @param {object} query
+ * @param {object} query.origin resolved place from airports.js
+ * @param {object} query.destination resolved place from airports.js
+ */
+export async function searchFlights(query) {
+  const origin = query.origin;
+  const destination = query.destination;
+  if (!origin || !destination) throw new Error('Sample flights need resolved origin and destination places.');
+  if (origin.code === destination.code) throw new Error('Origin and destination are the same place.');
+
+  const originAirports = airportsFor(origin);
+  const destAirports = airportsFor(destination);
   const cabin = query.cabin ?? 'economy';
   const count = query.count ?? 14;
   const date = query.date ?? 'anyday';
   const rand = rng(`flights:${origin.code}:${destination.code}:${date}:${cabin}`);
 
-  // Low-cost short-haul carriers don't sell tickets across an ocean, and a
-  // route is mostly served by carriers based at one end of it.
-  const routeKm = haversineKm(origin.airports[0], destination.airports[0]);
-  const endpoints = new Set([origin.region, destination.region]);
+  const routeKm = haversineKm(originAirports[0], destAirports[0]);
+  if (routeKm < 80) throw new Error('Origin and destination are the same place.');
+
+  const endpoints = new Set([regionOf(originAirports[0]), regionOf(destAirports[0])].filter(Boolean));
   const carriers = [];
   for (const carrier of SAMPLE_CARRIERS) {
     if (carrier.shortHaulOnly && routeKm > 3000) continue;
     const copies = endpoints.has(carrier.region) ? 3 : 1; // weighted draw
     for (let c = 0; c < copies; c++) carriers.push(carrier);
   }
+  if (carriers.length === 0) carriers.push(...SAMPLE_CARRIERS);
+
+  // Real local arrival times need the real offset on the day of travel.
+  const when = /^\d{4}-\d{2}-\d{2}$/.test(date) ? new Date(`${date}T12:00:00Z`) : new Date();
+  const offsetDelta =
+    (utcOffsetHours(destAirports[0].tz, when) - utcOffsetHours(originAirports[0].tz, when)) * 60;
 
   const offers = [];
   for (let i = 0; i < count; i++) {
     const carrier = pick(rand, carriers);
-    const originAirport = pick(rand, origin.airports);
-    const destAirport = pick(rand, destination.airports);
+    const originAirport = pick(rand, originAirports);
+    const destAirport = pick(rand, destAirports);
     const km = haversineKm(originAirport, destAirport);
 
+    // Long thin routes are rarely nonstop; short ones usually are.
+    const nonstopChance = km > 11000 ? 0.12 : km > 7000 ? 0.35 : km > 2000 ? 0.5 : 0.72;
     const stopRoll = rand();
-    const stops = stopRoll < 0.42 ? 0 : stopRoll < 0.85 ? 1 : 2;
+    const stops = stopRoll < nonstopChance ? 0 : stopRoll < nonstopChance + 0.45 ? 1 : 2;
 
-    // Routing, aircraft and winds move block time around by a few percent -
-    // without this, every nonstop on a route reports an identical duration.
     const airborneMin = Math.round((km / 830) * 60 * between(rand, 0.95, 1.07) + 35);
     const layoverMin = stops === 0 ? 0 : Math.round(between(rand, 65, 220) * stops);
     const durationMin = airborneMin + layoverMin;
@@ -105,7 +149,6 @@ export async function searchFlights(query, opts = {}) {
     );
 
     const departMinutes = Math.round(between(rand, 0, 1439) / 5) * 5;
-    const offsetDelta = (destination.utcOffset - origin.utcOffset) * 60;
     const arriveAbsolute = departMinutes + durationMin + offsetDelta;
     const dayShift = Math.floor(arriveAbsolute / 1440);
     const departDate = /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : '2026-01-01';
@@ -122,7 +165,7 @@ export async function searchFlights(query, opts = {}) {
         to: destAirport.code,
         departure: { date: departDate, time: fmt(departMinutes), dayNumber: 0 },
         arrival: { date: departDate, time: fmt(((arriveAbsolute % 1440) + 1440) % 1440), dayNumber: dayShift },
-        dayShift,
+        dayShift: Math.max(0, dayShift),
         durationMin,
         stops,
         layoverAirports:
@@ -137,7 +180,6 @@ export async function searchFlights(query, opts = {}) {
     );
   }
 
-  // Two carriers can't run the identical itinerary at the identical price.
   const seen = new Set();
   const unique = offers.filter((o) => {
     const key = `${o.airlineCode}:${o.departLocal}:${o.from}:${o.to}`;
@@ -152,5 +194,3 @@ export async function searchFlights(query, opts = {}) {
 
 const fmt = (mins) =>
   `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`;
-
-export { CITIES, airline };

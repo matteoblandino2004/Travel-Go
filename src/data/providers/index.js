@@ -15,7 +15,7 @@ import * as sample from './sample.js';
 import * as googleFlights from './serpapi.js';
 import * as amadeus from './amadeus.js';
 import { enrichOffers } from '../enrich.js';
-import { findCity } from '../cities.js';
+import { resolvePlace, describePlace } from '../airports.js';
 
 /** Real suppliers first: if a key is present, that's what the user wants used. */
 export const PROVIDERS = [googleFlights, amadeus, sample];
@@ -68,22 +68,31 @@ export function providerStatus(env = process.env) {
 }
 
 /**
- * Real suppliers want IATA codes, not "San Francisco".
+ * Resolve what the user typed to a real place, anywhere in the world.
  *
- * A city in the catalogue resolves to its metro code (TYO covers Haneda and
- * Narita, NYC covers all three), which is what makes the result set match what
- * you'd see on Google Flights. Anything else is accepted as a raw code, so a
- * live provider isn't limited to the six cities the sample data knows.
+ * Resolution goes through the full airport dataset, so "Lisbon", "Tbilisi" and
+ * "KTM" all work. Where a metropolitan code exists it wins - searching "Tokyo"
+ * means Haneda *and* Narita, which is what makes the result set match what
+ * you'd see typing a city into Google Flights.
+ *
+ * @returns {{place: object, alternatives: object[]}}
  */
-export function resolveLocationCode(value, { label = 'location' } = {}) {
-  const city = findCity(value);
-  if (city) return city.code;
-  const raw = String(value ?? '').trim().toUpperCase();
-  if (/^[A-Z]{3}$/.test(raw)) return raw;
-  throw new Error(
-    `I don't recognise "${value}" as a ${label}. Use a city name I know, or a 3-letter airport code (e.g. LAX).`
-  );
+export function resolveLocation(value, { label = 'location' } = {}) {
+  const resolved = resolvePlace(value);
+  if (resolved.notFound) {
+    throw new Error(
+      `I can't find anywhere called "${value}". Try a city name or a 3-letter airport code (e.g. LIS).`
+    );
+  }
+  return resolved;
 }
+
+/** Convenience for callers that only want the code a supplier needs. */
+export function resolveLocationCode(value, opts) {
+  return resolveLocation(value, opts).place.code;
+}
+
+export { describePlace };
 
 /* ------------------------------------------------------------------ *
  * Cache
@@ -93,7 +102,7 @@ const cache = new Map();
 
 function cacheKey(providerId, query) {
   return [
-    providerId, query.fromAirport, query.toAirport, query.date,
+    providerId, query.origin.code, query.destination.code, query.date,
     query.returnDate ?? '', query.cabin, query.adults ?? 1, query.maxStops ?? 'any',
   ].join('|');
 }
@@ -120,10 +129,21 @@ export async function searchFlights(query, opts = {}) {
   const env = opts.env ?? process.env;
   const provider = opts.provider ?? resolveProvider(env);
 
+  // Resolve both ends once, here: every provider needs it, and the resolution
+  // (including any "did you mean" alternatives) belongs in the response.
+  const origin = query.origin ?? resolveLocation(query.from, { label: 'origin' }).place;
+  const destination = query.destination ?? resolveLocation(query.to, { label: 'destination' }).place;
+  if (origin.code === destination.code) {
+    throw new Error(`Origin and destination are both ${describePlace(origin)}.`);
+  }
+
   const normalised = {
     ...query,
-    fromAirport: provider === sample ? query.from : resolveLocationCode(query.from, { label: 'origin' }),
-    toAirport: provider === sample ? query.to : resolveLocationCode(query.to, { label: 'destination' }),
+    origin,
+    destination,
+    // Real suppliers take the code; the sample generator takes the place.
+    fromAirport: origin.code,
+    toAirport: destination.code,
     cabin: query.cabin ?? 'economy',
     date: query.date ?? defaultDate(),
   };
@@ -148,10 +168,7 @@ export async function searchFlights(query, opts = {}) {
     } catch (error) {
       if (provider === sample) throw error;
       notes.push(`${provider.label} failed (${error.message}). Showing generated sample data instead.`);
-      result = await sample.searchFlights(
-        { ...normalised, from: query.from, to: query.to },
-        opts
-      );
+      result = await sample.searchFlights(normalised, opts);
     }
   }
 
@@ -165,6 +182,8 @@ export async function searchFlights(query, opts = {}) {
     label: result.label,
     live: result.source !== sample.id,
     cached,
+    origin,
+    destination,
     offers,
     dropped: result.dropped ?? [],
     priceInsights: result.priceInsights ?? null,

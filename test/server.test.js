@@ -47,7 +47,10 @@ test('will not serve files outside public/ and src/', async () => {
 test('/api/reference describes the criteria the UI has to render', async () => {
   await withServer(async (base) => {
     const ref = await (await fetch(base + '/api/reference')).json();
-    assert.ok(ref.cities.length > 0);
+    assert.ok(ref.coverage.airports > 7000, 'reports worldwide airport coverage');
+    assert.ok(ref.coverage.metros > 40);
+    assert.ok(ref.flightProvider.active);
+    assert.ok(ref.hotelProvider.active);
     assert.ok(ref.flightCriteria.some((c) => c.key === 'lounge'));
     assert.ok(ref.hotelCriteria.some((c) => c.key === 'access'));
     for (const criterion of [...ref.flightCriteria, ...ref.hotelCriteria]) {
