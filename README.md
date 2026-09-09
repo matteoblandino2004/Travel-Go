@@ -4,14 +4,33 @@ A trip search that ranks options against **your** priorities instead of a
 default one. You rate each thing 1–5 (or N/A to drop it entirely), and flights
 and hotels are scored, ordered, and explained against those weights.
 
-```
-npm start           # http://localhost:3000
-npm test            # 149 tests, no network needed
+## Running it
+
+Needs **Node 20 or newer** and nothing else — there are no dependencies to
+install.
+
+```bash
+git clone https://github.com/matteoblandino2004/Travel-Go.git
+cd Travel-Go
+git checkout claude/travel-booking-preference-ranking-vpm0x1
+
+npm start                     # then open http://localhost:3000
 ```
 
-No dependencies are required to run it. Node 20+. It covers **every city with
-an airport** — 7,916 of them, in 236 countries — and runs on generated sample
-data out of the box; see [Flight data](#flight-data) to connect a real supplier.
+That's it. It works immediately on generated sample data, for every city with
+an airport — 7,916 of them, in 236 countries.
+
+```bash
+npm run doctor      # check what's configured and make one real call to each supplier
+npm test            # 160 tests, no keys or network needed
+npm run dev         # same as start, but restarts on file changes
+PORT=8080 npm start # if 3000 is taken
+```
+
+To use real flight and hotel data instead of the generated market, copy
+`.env.example` to `.env` and fill in whatever keys you have — `npm start`
+loads it automatically. See [Flight data](#flight-data) for what's available
+and what each option costs. `npm run doctor` will tell you whether it worked.
 
 ---
 
@@ -126,7 +145,8 @@ src/data/      where offers come from
 src/nl/        plain-English intake (Claude + offline fallback)
 src/server/    zero-dependency HTTP API and static host
 public/        the front end
-test/          149 tests, including recorded supplier responses
+scripts/       doctor (verify your setup), build-airports (refresh the dataset)
+test/          160 tests, including recorded supplier responses
 ```
 
 The browser imports the **same** modules from `src/core` that the API uses, so
@@ -298,11 +318,15 @@ ones — searching "Victoria" while planning Hong Kong means the harbour.
 flight seam: Amadeus Hotel Search (same free credentials, global) or generated
 inventory placed on rings around whatever centre it is given, priced against a
 per-country cost index so Zurich does not cost what Hanoi costs.
-`src/data/transit.js` supplies the one number the travel-time model needs, per
-destination: a curated value for metros where the answer is well known, then a
-country default, then 0.5. It is a blunt instrument and says which tier it
-used — but "Tokyo is easier to cross than Houston" is the part that moves a
-ranking, and that part it gets right.
+
+Getting around needs one number the travel-time model can use.
+`src/data/transit.js` supplies it — a curated value for metros where the answer
+is well known, then a country default, then 0.5 — and the UI states which of
+the three it used rather than presenting a guess as fact. But the city is only
+half of it: someone walking everywhere and someone with a hire car experience
+the same hotel completely differently, and no data about the city can tell you
+which one is reading the page. So **how you'll get around is a control**, not
+an assumption. Uncheck taxis and a hotel across town stops looking convenient.
 
 ### Still generated
 

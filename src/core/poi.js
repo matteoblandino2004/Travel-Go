@@ -30,11 +30,11 @@ import { importanceToWeight, isIgnored } from './weights.js';
  *
  * @param {{lat:number,lng:number}} hotel
  * @param {Poi[]} pois
- * @param {{transitQuality?:number}} [opts]
+ * @param {{transitQuality?:number, modes?:string[]}} [opts]
  * @returns {{score:number, legs:Array<object>, worstMustSee:object|null}}
  */
 export function scoreHotelAccess(hotel, pois, opts = {}) {
-  const { transitQuality = DEFAULT_TRANSIT_QUALITY } = opts;
+  const { transitQuality = DEFAULT_TRANSIT_QUALITY, modes } = opts;
   const considered = (pois ?? []).filter(
     (p) => p && Number.isFinite(p.lat) && Number.isFinite(p.lng) && !isIgnored(p.importance ?? 3)
   );
@@ -44,7 +44,7 @@ export function scoreHotelAccess(hotel, pois, opts = {}) {
   }
 
   const legs = considered.map((poi) => {
-    const travel = estimateTravel(hotel, poi, { transitQuality });
+    const travel = estimateTravel(hotel, poi, { transitQuality, modes });
     return {
       poi,
       name: poi.name,

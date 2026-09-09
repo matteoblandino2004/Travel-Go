@@ -12,7 +12,7 @@
  */
 
 import * as nominatim from './nominatim.js';
-import { findPoi, findCity } from '../cities.js';
+import { findPoi, findCity, curatedCityFor } from '../cities.js';
 
 const GEOCODERS = { nominatim };
 
@@ -128,7 +128,7 @@ function pickBest(results, context) {
  * @param {object} place a resolved airport/metro from airports.js
  */
 export async function geocodeCityCentre(place, opts = {}) {
-  const curated = findCity(place.city) ?? findCity(place.code);
+  const curated = curatedCityFor(place);
   if (curated) {
     return { lat: curated.center.lat, lng: curated.center.lng, source: 'catalogue', approximate: false };
   }

@@ -48,7 +48,7 @@ export const HOTEL_CRITERIA = [
   {
     key: 'access',
     label: 'Getting around',
-    hint: 'Travel time from this hotel to every place you listed, weighted by how much each matters.',
+    hint: 'Travel time from this hotel to every place you listed, weighted by how much each matters, by whatever way of getting around you chose.',
     value: (h, ctx) => {
       const detail = ctx.accessByHotel?.get(h.id);
       return detail ? detail.score : 0.5;
@@ -111,13 +111,13 @@ export const HOTEL_CRITERIA_KEYS = HOTEL_CRITERIA.map((c) => c.key);
  *
  * @param {object[]} hotels
  * @param {Record<string, import('./weights.js').Importance>} importances
- * @param {{pois?: import('./poi.js').Poi[], transitQuality?: number}} [opts]
+ * @param {{pois?: import('./poi.js').Poi[], transitQuality?: number, modes?: string[]}} [opts]
  */
 export function rankHotels(hotels, importances, opts = {}) {
-  const { pois = [], transitQuality } = opts;
+  const { pois = [], transitQuality, modes } = opts;
   const accessByHotel = new Map();
   for (const hotel of hotels) {
-    accessByHotel.set(hotel.id, scoreHotelAccess(hotel, pois, { transitQuality }));
+    accessByHotel.set(hotel.id, scoreHotelAccess(hotel, pois, { transitQuality, modes }));
   }
 
   const ctx = { accessByHotel, pois };

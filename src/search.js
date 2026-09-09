@@ -11,7 +11,7 @@ import { searchHotels } from './data/hotels/index.js';
 import { resolvePlace, describePlace } from './data/airports.js';
 import { geocodePlace, geocodeCityCentre } from './data/geocode/index.js';
 import { transitQualityFor } from './data/transit.js';
-import { findCity } from './data/cities.js';
+import { curatedCityFor } from './data/cities.js';
 import { rankFlights } from './core/flights.js';
 import { rankHotels } from './core/hotels.js';
 import { explain, topDrivers } from './core/rank.js';
@@ -137,6 +137,7 @@ export async function planTrip(request, opts = {}) {
   const rankedHotels = rankHotels(hotelSearch.hotels, request.hotel, {
     pois: resolved,
     transitQuality: context.transit.value,
+    modes: request.modes,
   });
 
   return {
@@ -155,7 +156,7 @@ export async function planTrip(request, opts = {}) {
 export async function destinationContext(place, opts = {}) {
   const centre = await geocodeCityCentre(place, opts);
   const transit = transitQualityFor({ cityCode: place.code, country: place.country });
-  const curated = findCity(place.city) ?? findCity(place.code);
+  const curated = curatedCityFor(place);
 
   return {
     centre,

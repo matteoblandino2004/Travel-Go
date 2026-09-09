@@ -50,16 +50,20 @@ const DONT_CARE = [
 function findCityMention(text, exclude = null) {
   let best = null;
   for (const city of Object.values(CITIES)) {
+    if (exclude && city.code === exclude) continue;
     const names = [city.name, ...city.airports.map((a) => a.code), city.code];
     for (const name of names) {
-      const idx = text.indexOf(name.toLowerCase());
-      if (idx === -1) continue;
-      if (exclude && city.code === exclude) continue;
-      if (!best || idx < best.idx) best = { city, idx };
+      // Whole words only. A substring search finds "LON" inside "a long trip"
+      // and quietly decides the traveller is starting from London.
+      const match = new RegExp(`\\b${escapeRegExp(name.toLowerCase())}\\b`).exec(text);
+      if (!match) continue;
+      if (!best || match.index < best.idx) best = { city, idx: match.index };
     }
   }
   return best;
 }
+
+const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 function extractDate(text) {
   const iso = /\b(20\d{2})-(\d{2})-(\d{2})\b/.exec(text);
@@ -69,9 +73,14 @@ function extractDate(text) {
     const month = MONTHS.indexOf(named[2]) + 1;
     const day = Number(named[1] ?? named[3] ?? 1);
     const now = new Date();
+    // "in September" said on 9 September means next year's, not a date that
+    // has already passed - so compare the whole date, not just the month.
     let year = now.getFullYear();
-    if (month < now.getMonth() + 1) year += 1; // "in April" means the next April
-    return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const iso = (y) => `${y}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    if (new Date(`${iso(year)}T00:00:00Z`) < new Date(now.toISOString().slice(0, 10) + 'T00:00:00Z')) {
+      year += 1;
+    }
+    return iso(year);
   }
   return null;
 }

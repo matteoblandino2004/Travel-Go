@@ -16,6 +16,7 @@
 export const CITIES = {
   TYO: {
     code: 'TYO',
+    countryCode: 'JP',
     region: 'asia',
     name: 'Tokyo',
     country: 'Japan',
@@ -42,6 +43,7 @@ export const CITIES = {
   },
   LON: {
     code: 'LON',
+    countryCode: 'GB',
     region: 'europe',
     name: 'London',
     country: 'United Kingdom',
@@ -67,6 +69,7 @@ export const CITIES = {
   },
   PAR: {
     code: 'PAR',
+    countryCode: 'FR',
     region: 'europe',
     name: 'Paris',
     country: 'France',
@@ -91,6 +94,7 @@ export const CITIES = {
   },
   NYC: {
     code: 'NYC',
+    countryCode: 'US',
     region: 'namerica',
     name: 'New York',
     country: 'United States',
@@ -115,6 +119,7 @@ export const CITIES = {
   },
   BCN: {
     code: 'BCN',
+    countryCode: 'ES',
     region: 'europe',
     name: 'Barcelona',
     country: 'Spain',
@@ -137,6 +142,7 @@ export const CITIES = {
   },
   SFO: {
     code: 'SFO',
+    countryCode: 'US',
     region: 'namerica',
     name: 'San Francisco',
     country: 'United States',
@@ -205,6 +211,34 @@ export const NEIGHBOURHOODS = {
     { name: 'Mission', lat: 37.7599, lng: -122.4148, premium: 0.85 },
   ],
 };
+
+/**
+ * Find the curated record for an already-resolved place.
+ *
+ * Name alone is not enough: Paris, Texas and London, Ontario share a name with
+ * cities we hold data for, and matching on that gave them a European centre
+ * and a list of European landmarks. Country must agree, and the coordinates
+ * have to be in the same part of the world.
+ *
+ * @param {{city?:string, code?:string, country?:string, lat?:number, lng?:number}} place
+ */
+export function curatedCityFor(place) {
+  if (!place) return null;
+  const byCode = CITIES[String(place.code ?? '').toUpperCase()];
+  const candidate = byCode ?? findCity(place.city);
+  if (!candidate) return null;
+
+  if (place.country && candidate.countryCode !== place.country) return null;
+
+  // Final guard: a curated centre must actually be near the place resolved.
+  if (Number.isFinite(place.lat) && Number.isFinite(place.lng)) {
+    const dLat = candidate.center.lat - place.lat;
+    const dLng = (candidate.center.lng - place.lng) * Math.cos((place.lat * Math.PI) / 180);
+    const km = Math.sqrt(dLat * dLat + dLng * dLng) * 111;
+    if (km > 200) return null;
+  }
+  return candidate;
+}
 
 /** Resolve a user-typed city or airport string to a city record. */
 export function findCity(query) {

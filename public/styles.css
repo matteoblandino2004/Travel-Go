@@ -291,3 +291,6 @@ textarea { resize: vertical; }
   color: var(--accent); font-size: 12.5px; text-decoration: underline;
 }
 .alt-link:hover { filter: brightness(1.15); }
+
+.modes { display: flex; gap: 12px; margin: 6px 0 8px; font-size: 13px; flex-wrap: wrap; }
+.modes .check { cursor: pointer; }

@@ -81,6 +81,9 @@ function wireEvents() {
   for (const id of ['dep-start', 'dep-end', 'dep-enabled', 'arr-start', 'arr-end', 'arr-enabled']) {
     $(id).addEventListener('change', () => { readWindows(); rerender(); });
   }
+  for (const box of document.querySelectorAll('.mode')) {
+    box.addEventListener('change', () => rerender());
+  }
 }
 
 /**
@@ -106,6 +109,32 @@ function wirePlaceAutocomplete(input) {
       }
     }, 180);
   });
+}
+
+/** Which ways of getting around the traveller is willing to use. */
+function selectedModes() {
+  const chosen = [...document.querySelectorAll('.mode:checked')].map((box) => box.value);
+  return chosen.length ? chosen : ['walk']; // unchecking everything means walking
+}
+
+/**
+ * Say what the travel-time model is assuming, rather than leaving it implicit.
+ * The number is a curated estimate per city, and the note says as much.
+ */
+function renderTransitNote() {
+  const destination = state.search?.destination;
+  const el = $('transit-note');
+  if (!destination) { el.textContent = ''; return; }
+
+  const quality = destination.transitQuality;
+  const descriptor = quality >= 0.8 ? 'excellent' : quality >= 0.6 ? 'good' : quality >= 0.45 ? 'patchy' : 'limited';
+  const basis = {
+    city: `a known figure for ${destination.name}`,
+    country: `a country-level estimate — we have no figure for ${destination.name} itself`,
+    default: 'a global default — we have no figure for anywhere near here',
+  }[destination.transitBasis] ?? '';
+
+  el.textContent = `Assuming ${descriptor} public transport (${basis}). Uncheck a mode above if it doesn't apply to your trip.`;
 }
 
 function readWindows() {
@@ -280,6 +309,7 @@ async function runSearch() {
       date: $('f-date').value,
       nights: Number($('f-nights').value) || 3,
       cabin: $('f-cabin').value,
+      modes: selectedModes(),
       places: state.places.filter((p) => p.lat != null),
     });
 
@@ -314,7 +344,9 @@ function rerender() {
   const hotels = rankHotels(state.search.hotels, state.hotel, {
     pois: state.places.filter((p) => p.lat != null),
     transitQuality: state.search.destination.transitQuality,
+    modes: selectedModes(),
   });
+  renderTransitNote();
   paintWeights($('hotel-criteria'), hotels.weights);
   renderResults($('hotel-results'), hotels, hotelView);
   $('hotels-count').textContent = summary(hotels, state.search.hotels.length);
@@ -358,16 +390,34 @@ function flightView(result) {
 
 function hotelView(result) {
   const h = result.candidate;
+  const estimated = new Set(h.estimatedFields ?? []);
+
+  // Suppliers differ in what they carry - Amadeus has no review scores at all.
+  // Show what exists; never render "undefined" or crash the list.
+  const subtitle = [
+    Number.isFinite(h.stars) ? `${h.stars}★${estimated.has('stars') ? ' (est.)' : ''}` : null,
+    h.neighbourhood,
+    Number.isFinite(h.guestRating)
+      ? `${h.guestRating}/10${Number.isFinite(h.reviewCount) ? ` from ${h.reviewCount.toLocaleString('en-US')} reviews` : ''}`
+      : 'no review score',
+  ]
+    .filter(Boolean)
+    .join(' · ');
+
+  const facts = [
+    ['Rate', Number.isFinite(h.nightlyUsd) ? `$${h.nightlyUsd.toLocaleString('en-US')}/night` : null],
+    ['Total', Number.isFinite(h.totalUsd) ? `$${h.totalUsd.toLocaleString('en-US')} for ${h.nights}` : null],
+    ['Status', h.eliteRecognition && h.eliteRecognition !== 'none' ? cap(h.eliteRecognition) : 'No tier'],
+    ['Points', Number.isFinite(h.pointsEarned) ? h.pointsEarned.toLocaleString('en-US') : null,
+      estimated.has('pointsEarned')],
+    ['Cancel', { free: 'Free', partial: 'Partial', nonrefundable: 'None' }[h.cancellation]],
+    ['Room', h.roomType ? cap(String(h.roomType).toLowerCase().replace(/_/g, ' ')) : null],
+  ];
+
   return {
     title: h.name,
-    subtitle: `${h.stars}★ · ${h.neighbourhood} · ${h.guestRating}/10 from ${h.reviewCount.toLocaleString('en-US')} reviews`,
-    facts: [
-      ['Rate', `$${h.nightlyUsd.toLocaleString('en-US')}/night`],
-      ['Total', `$${h.totalUsd.toLocaleString('en-US')} for ${h.nights}`],
-      ['Status', h.eliteRecognition === 'none' ? 'No tier' : cap(h.eliteRecognition)],
-      ['Points', h.pointsEarned.toLocaleString('en-US')],
-      ['Cancel', { free: 'Free', partial: 'Partial', nonrefundable: 'None' }[h.cancellation]],
-    ],
+    subtitle,
+    facts: facts.filter(([, value]) => value != null && value !== ''),
     legs: result.access?.legs ?? [],
   };
 }

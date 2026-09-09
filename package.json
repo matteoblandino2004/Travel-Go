@@ -4,11 +4,14 @@
   "description": "Preference-ranked travel search: rank flights and hotels against importance weights you set yourself.",
   "type": "module",
   "main": "src/index.js",
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
-    "start": "node src/server/server.js",
-    "dev": "node --watch src/server/server.js",
-    "test": "node --test"
+    "start": "node --env-file-if-exists=.env src/server/server.js",
+    "dev": "node --watch --env-file-if-exists=.env src/server/server.js",
+    "test": "node --test",
+    "doctor": "node --env-file-if-exists=.env scripts/doctor.mjs"
   },
   "optionalDependencies": {
     "@anthropic-ai/sdk": "^0.124.0"

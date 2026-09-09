@@ -75,8 +75,15 @@ export async function searchHotels(query, opts = {}) {
     currency: 'USD',
     bestRateOnly: 'true',
   });
-  if (query.checkIn) offerParams.set('checkInDate', query.checkIn);
-  if (query.checkOut) offerParams.set('checkOutDate', query.checkOut);
+  // Both dates, always. Amadeus defaults to a single night when checkOutDate
+  // is missing, and a one-night total divided by a three-night stay reports
+  // rates at a third of reality - on the criterion that usually carries the
+  // most weight.
+  const nights = Math.max(1, query.nights ?? 3);
+  const checkIn = query.checkIn;
+  const checkOut = query.checkOut ?? (checkIn ? addDays(checkIn, nights) : null);
+  if (checkIn) offerParams.set('checkInDate', checkIn);
+  if (checkOut) offerParams.set('checkOutDate', checkOut);
 
   const offersResponse = await fetchImpl(`${host}/v3/shopping/hotel-offers?${offerParams}`, {
     headers: auth,
@@ -93,7 +100,7 @@ export async function searchHotels(query, opts = {}) {
 
 /** Exported for fixture tests - no key, no network. */
 export function parseResponse(offersPayload, candidates = [], query = {}) {
-  const nights = query.nights ?? 3;
+  const requestedNights = Math.max(1, query.nights ?? 3);
   const byId = new Map(candidates.map((c) => [c.hotelId, c]));
   const notes = [];
 
@@ -106,6 +113,10 @@ export function parseResponse(offersPayload, candidates = [], query = {}) {
 
       const total = Number(offer?.price?.total);
       if (!Number.isFinite(total) || total <= 0) return null;
+
+      // Divide by the stay Amadeus actually priced, not the one we asked for -
+      // they can differ if the supplier adjusted the dates.
+      const nights = nightsBetween(offer?.checkInDate, offer?.checkOutDate) ?? requestedNights;
 
       const lat = Number(hotel.latitude ?? listed.geoCode?.latitude);
       const lng = Number(hotel.longitude ?? listed.geoCode?.longitude);
@@ -147,6 +158,23 @@ export function parseResponse(offersPayload, candidates = [], query = {}) {
   }
 
   return { source: id, label, hotels, notes };
+}
+
+/** "2026-10-12" + 3 -> "2026-10-15" */
+function addDays(date, days) {
+  const parsed = new Date(`${date}T00:00:00Z`);
+  if (Number.isNaN(parsed.getTime())) return null;
+  parsed.setUTCDate(parsed.getUTCDate() + days);
+  return parsed.toISOString().slice(0, 10);
+}
+
+/** Whole nights between two ISO dates, or null if either is unusable. */
+function nightsBetween(from, to) {
+  if (!from || !to) return null;
+  const start = new Date(`${from}T00:00:00Z`).getTime();
+  const end = new Date(`${to}T00:00:00Z`).getTime();
+  if (Number.isNaN(start) || Number.isNaN(end) || end <= start) return null;
+  return Math.round((end - start) / 86400000);
 }
 
 function cheapest(offers) {
