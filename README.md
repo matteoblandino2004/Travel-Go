@@ -22,15 +22,19 @@ an airport — 7,916 of them, in 236 countries.
 
 ```bash
 npm run doctor      # check what's configured and make one real call to each supplier
-npm test            # 160 tests, no keys or network needed
+npm test            # 177 tests, no keys or network needed
 npm run dev         # same as start, but restarts on file changes
 PORT=8080 npm start # if 3000 is taken
 ```
 
-To use real flight and hotel data instead of the generated market, copy
-`.env.example` to `.env` and fill in whatever keys you have — `npm start`
-loads it automatically. See [Flight data](#flight-data) for what's available
-and what each option costs. `npm run doctor` will tell you whether it worked.
+For real fares with **no account and no key**: run your search on Google
+Flights or Kayak, copy the result rows, and paste them into the box above the
+flight results — see [Pasting flights in](#pasting-flights-in).
+
+For a supplier that fetches them automatically, copy `.env.example` to `.env`
+and fill in whatever keys you have — `npm start` loads it automatically. See
+[Flight data](#flight-data) for what's available and what each option costs;
+`npm run doctor` will tell you whether it worked.
 
 ---
 
@@ -135,7 +139,8 @@ src/core/      the scoring engine — no I/O, no dependencies, no idea where off
 src/data/      where offers come from
   airports.json  7,916 airports: codes, names, coordinates, timezones
   airports.js    resolves "Tbilisi", "Haneda" or "KTM" to somewhere real
-  providers/     flight suppliers: sample, google-flights (SerpApi), amadeus
+  providers/     flight sources: sample, google-flights (SerpApi), amadeus,
+                 paste (parses flights copied off a search page)
   hotels/        hotel suppliers: sample (anywhere), amadeus
   geocode/       place names -> coordinates, for any city
   enrich.js      derives miles, elite credit and lounge access - no feed has them
@@ -146,7 +151,7 @@ src/nl/        plain-English intake (Claude + offline fallback)
 src/server/    zero-dependency HTTP API and static host
 public/        the front end
 scripts/       doctor (verify your setup), build-airports (refresh the dataset)
-test/          160 tests, including recorded supplier responses
+test/          177 tests, including recorded supplier responses
 ```
 
 The browser imports the **same** modules from `src/core` that the API uses, so
@@ -189,12 +194,23 @@ trip.hotels.results[0].access.legs // "Senso-ji Temple — 9 min by transit"
 | `POST /api/parse` | plain English → structured preferences |
 | `GET /api/places?q=` | autocomplete over all 7,916 airports and metros |
 | `POST /api/geocode` | locate one named place near a destination |
+| `POST /api/import/flights` | parse flights copied from a search page |
 
 `GET /api/reference` also reports which suppliers and geocoder are configured,
 which are active, and how many airports are covered.
 
 ---
 ## Flight data
+
+### Three ways to get real fares in
+
+| | Effort | Cost | Coverage |
+|---|---|---|---|
+| **Paste them in** | Copy the results you're looking at, each search | Free | Whatever site you copied from |
+| **SerpApi** | Set one key, then automatic | ~$50/mo | Everything Google Flights shows |
+| **Amadeus** | Set two keys, then automatic | Free tier | Licensed GDS content |
+
+Pasting is the one that needs nothing — see [Pasting flights in](#pasting-flights-in).
 
 ### Google Flights has no API
 
@@ -225,6 +241,50 @@ TRAVELGO_FLIGHT_PROVIDER=amadeus                     # if both are set
 
 See `.env.example`. With no key at all you get generated sample data:
 realistic, deterministic, and clearly labelled as not bookable.
+
+### Pasting flights in
+
+The route that needs no account, no key and no monthly bill: run the search
+yourself on Google Flights, Kayak, Skyscanner or an airline's own site, select
+the result rows — **including the prices** — copy, and paste into the box above
+the flight results. They get ranked against your weights like anything else,
+and your loyalty status still fills in miles and lounge access.
+
+It reads what's on your clipboard rather than any one site's markup, so it
+isn't tied to a layout that will change next month. It looks for the *shapes*
+of the facts — a time range, a duration, an airport pair, a stop count, a
+price — wherever they appear in a record:
+
+```
+10:15 AM – 2:30 PM+1        ->  ANA (NH), SFO-HND, 10:15-14:30 next day,
+ANA                             11h15m nonstop, $1,247, 1,043 kg CO2
+11 hr 15 min
+SFO–HND
+Nonstop
+1,043 kg CO2e
+$1,247
+```
+
+Handled: 12- and 24-hour clocks, `+1` day arrivals, layover airports
+(`1 stop LHR`, `2 hr 5 min ORD`, `via AMS`), CO2 figures, and currency symbols
+before or after the number. Sites differ on ordering — Google Flights puts the
+price last, Kayak puts it first and the airline before the times — so the
+record boundary is anchored on the price and the layout is worked out from the
+paste itself rather than hard-coded per site.
+
+Two things it will tell you rather than guess at. A row it can't read is named
+back to you with what was missing, because a silently dropped flight is one
+you think is in the ranking. And a paste mixing two currencies gets a warning,
+since no conversion is applied — one consistent currency ranks fine whatever
+it is, two do not.
+
+A **CSV or JSON list** works too, with loosely-matched column names
+(`price`/`fare`/`cost`, `carrier`/`airline`, `departure time`/`depart`), which
+is the easier path if your data is already in a spreadsheet.
+
+Pasting fares you are personally looking at into your own local tool is
+ordinary personal use. Redistributing them is not, and neither is automating
+the copying at volume — that's what the supplier APIs are for.
 
 ### What no supplier gives you
 

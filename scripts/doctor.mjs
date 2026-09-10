@@ -229,6 +229,10 @@ if (failed.length === 0 && warned.length === 0) {
 } else if (failed.length === 0) {
   console.log('\n  Nothing is broken. The warnings are optional features you have not configured;');
   console.log('  anything unconfigured falls back to generated sample data.');
+  if (metered === 0) {
+    console.log('\n  For real fares with no account: run a search on Google Flights or Kayak,');
+    console.log('  copy the result rows, and paste them into the box above the flight results.');
+  }
   console.log(bold('\n  Run: npm start   then open http://localhost:3000\n'));
 } else {
   console.log(red('\n  Fix the failures above and run this again.'));

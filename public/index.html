@@ -97,6 +97,22 @@
         </aside>
 
         <div class="results">
+          <details class="card import">
+            <summary>Paste real flights from a search page</summary>
+            <p class="controls-hint">
+              Run your search on Google Flights, Kayak, Skyscanner or an airline site,
+              select the result rows — prices included — copy, and paste here. No account
+              or API key needed. A CSV or JSON list works too.
+            </p>
+            <textarea id="import-text" rows="5" placeholder="10:15 AM – 2:30 PM+1&#10;ANA&#10;11 hr 15 min&#10;SFO–HND&#10;Nonstop&#10;$1,247&#10;…"></textarea>
+            <div class="import-actions">
+              <button id="btn-import" class="btn btn-primary btn-small" type="button">Import &amp; rank these</button>
+              <button id="btn-import-clear" class="btn btn-small" type="button" hidden>Back to generated data</button>
+              <span id="import-status" class="status" role="status" aria-live="polite"></span>
+            </div>
+            <ul id="import-notes" class="notes" hidden></ul>
+          </details>
+
           <div class="results-head">
             <h2 id="flights-heading">Flights</h2>
             <span id="flights-count" class="muted"></span>

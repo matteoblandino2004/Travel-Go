@@ -15,11 +15,13 @@ import { fileURLToPath } from 'node:url';
 import { searchFlights, providerStatus as flightProviderStatus } from '../data/providers/index.js';
 import { searchHotels, providerStatus as hotelProviderStatus } from '../data/hotels/index.js';
 import { searchPlaces, describePlace, datasetInfo } from '../data/airports.js';
+import { enrichOffers } from '../data/enrich.js';
 import { geocoderStatus, geocodePlace } from '../data/geocode/index.js';
 import { FLIGHT_CRITERIA } from '../core/flights.js';
 import { HOTEL_CRITERIA } from '../core/hotels.js';
 import { WINDOW_PRESETS } from '../core/timepref.js';
 import { planTrip, resolvePlaces, resolveEndpoint, destinationContext } from '../search.js';
+import { importFlights } from '../data/providers/paste.js';
 import { parseTripRequest } from '../nl/parse.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -142,11 +144,52 @@ const routes = {
     return { place: located };
   },
 
+  /**
+   * Flights pasted from a search page. No supplier, no key, no bill - the
+   * traveller has already run the search themselves and copied the results.
+   */
+  'POST /api/import/flights': async (body) => {
+    let origin = null;
+    let destination = null;
+    try {
+      origin = resolveEndpoint(body.from, 'origin').place;
+      destination = resolveEndpoint(body.to, 'destination').place;
+    } catch {
+      // A paste that names its own airports doesn't need the search boxes.
+    }
+
+    let result;
+    try {
+      result = await importFlights(body.text, {
+        from: body.fromCode ?? firstAirport(origin),
+        to: body.toCode ?? firstAirport(destination),
+        date: body.date,
+        cabin: body.cabin,
+      });
+    } catch (error) {
+      // Unreadable input is the caller's problem, not a server fault.
+      throw httpError(400, error.message);
+    }
+
+    return {
+      source: result.source,
+      label: result.label,
+      format: result.format,
+      offers: enrichOffers(result.offers, body.profile ?? {}),
+      skipped: result.skipped,
+      notes: result.notes,
+    };
+  },
+
   /** Candidates *and* ranking, for API clients that don't run the core in-process. */
   'POST /api/plan': async (body) => planTrip(body),
 
   'POST /api/parse': async (body) => parseTripRequest(body.text, { model: body.model }),
 };
+
+/** A pasted flight that omits its route inherits the one in the search boxes. */
+const firstAirport = (place) =>
+  place ? (place.kind === 'metro' ? place.airports[0].code : place.code) : undefined;
 
 function endpointSummary({ place, alternatives }) {
   return {

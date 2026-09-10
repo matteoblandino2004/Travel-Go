@@ -19,6 +19,8 @@ const PALETTE = ['#1f6feb', '#e0a13a', '#1a7f5a', '#8b5cf6', '#d9576c', '#2fa8b8
 const state = {
   reference: null,
   search: null, // { destination, offers, hotels, places }
+  /** Flights the traveller pasted in, which override whatever a supplier gave. */
+  pastedOffers: null,
   flight: {},
   hotel: {},
   places: [], // { name, kind, importance, lat, lng }
@@ -62,6 +64,8 @@ function wireEvents() {
   for (const id of ['f-from', 'f-to']) wirePlaceAutocomplete($(id));
   $('btn-read').addEventListener('click', () => readIntake());
   $('btn-add-place').addEventListener('click', () => addPlaceFromInput());
+  $('btn-import').addEventListener('click', () => importFlights());
+  $('btn-import-clear').addEventListener('click', () => clearImport());
   $('place-input').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') { e.preventDefault(); addPlaceFromInput(); }
   });
@@ -313,6 +317,8 @@ async function runSearch() {
       places: state.places.filter((p) => p.lat != null),
     });
 
+    state.pastedOffers = null;
+    $('btn-import-clear').hidden = true;
     renderProviderNote(state.search);
 
     $('poi-list').innerHTML = (state.search.destination.pois ?? [])
@@ -332,13 +338,14 @@ function rerender() {
   if (!state.search) return;
   readWindows();
 
-  const flights = rankFlights(state.search.offers, state.flight, {
+  const offers = state.pastedOffers ?? state.search.offers;
+  const flights = rankFlights(offers, state.flight, {
     departureWindow: state.departureWindow,
     arrivalWindow: state.arrivalWindow,
   });
   paintWeights($('flight-criteria'), flights.weights);
   renderResults($('flight-results'), flights, flightView);
-  $('flights-count').textContent = summary(flights, state.search.offers.length);
+  $('flights-count').textContent = summary(flights, offers.length);
   $('flights-heading').textContent = `Flights to ${state.search.destination.name}`;
 
   const hotels = rankHotels(state.search.hotels, state.hotel, {
@@ -506,6 +513,78 @@ function legsList(legs) {
          <span class="${leg.minutes > 45 ? 'far' : ''}">${esc(leg.summary)}</span></li>`
     )
     .join('')}</ul>`;
+}
+
+/* ------------------------------------------------------------------ *
+ * Pasted flights
+ * ------------------------------------------------------------------ */
+
+/**
+ * Parse whatever is in the paste box and rank it.
+ *
+ * The parsing happens on the server (it needs the carrier tables), but
+ * everything after that is the same client-side re-ranking as any other
+ * candidate list - so the ratings stay live over real fares.
+ */
+async function importFlights() {
+  const text = $('import-text').value.trim();
+  if (!text) return;
+
+  const button = $('btn-import');
+  button.disabled = true;
+  $('import-status').textContent = 'Reading…';
+
+  try {
+    const result = await postJson('/api/import/flights', {
+      text,
+      from: $('f-from').value,
+      to: $('f-to').value,
+      date: $('f-date').value,
+      cabin: $('f-cabin').value,
+    });
+
+    state.pastedOffers = result.offers;
+    if (state.search) {
+      state.search.provider = {
+        source: result.source,
+        label: `${result.offers.length} flights you pasted`,
+        live: true,
+        cached: false,
+        notes: result.notes ?? [],
+      };
+      renderProviderNote(state.search);
+    }
+
+    $('btn-import-clear').hidden = false;
+    $('import-status').textContent = `Ranking ${result.offers.length} pasted flight${result.offers.length === 1 ? '' : 's'}.`;
+    showImportNotes([
+      ...(result.notes ?? []),
+      // Naming what was skipped matters: a silently dropped row is a flight the
+      // traveller thinks is in the ranking.
+      ...(result.skipped ?? []).map((s) => `Couldn't read "${s.text.slice(0, 60)}…" — no ${s.missing.join(' or ')}.`),
+    ]);
+    rerender();
+  } catch (error) {
+    $('import-status').textContent = '';
+    showImportNotes([error.message]);
+  } finally {
+    button.disabled = false;
+  }
+}
+
+function clearImport() {
+  state.pastedOffers = null;
+  $('import-text').value = '';
+  $('import-status').textContent = '';
+  $('btn-import-clear').hidden = true;
+  showImportNotes([]);
+  runSearch();
+}
+
+function showImportNotes(notes) {
+  const list = $('import-notes');
+  list.innerHTML = notes.map((n) => `<li>${esc(n)}</li>`).join('');
+  list.hidden = notes.length === 0;
 }
 
 /* ------------------------------------------------------------------ *

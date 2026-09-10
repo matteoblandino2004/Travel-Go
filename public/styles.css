@@ -294,3 +294,11 @@ textarea { resize: vertical; }
 
 .modes { display: flex; gap: 12px; margin: 6px 0 8px; font-size: 13px; flex-wrap: wrap; }
 .modes .check { cursor: pointer; }
+
+/* ---------- paste importer ---------- */
+
+.import { margin-top: 0; }
+.import summary { cursor: pointer; font-weight: 550; font-size: 13.5px; }
+.import summary::marker { color: var(--ink-3); }
+.import textarea { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; }
+.import-actions { display: flex; align-items: center; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
