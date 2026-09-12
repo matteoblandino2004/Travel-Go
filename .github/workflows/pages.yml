@@ -1,11 +1,18 @@
 # Publishes the standalone build to GitHub Pages.
 #
-# One-time setup: repository Settings -> Pages -> Build and deployment ->
-# Source: "GitHub Actions". After that every push to this branch redeploys.
+# Two requirements before this can work, neither reachable through the API:
 #
-# Pages serves static files, which is exactly what the standalone build is.
-# The full Node server (live suppliers, geocoding) needs a real host - see
-# render.yaml and the README.
+#  1. The repository must be PUBLIC, or the account on GitHub Pro or above.
+#     Pages is not available for private repositories on the free plan.
+#  2. Settings -> Pages -> Build and deployment -> Source: "GitHub Actions".
+#
+# It also has to run on the DEFAULT branch: enabling Pages creates a
+# `github-pages` environment that, by default, only permits deployments from
+# the default branch. Running it from a feature branch is rejected even when
+# everything else is set up correctly.
+#
+# If the repository needs to stay private, use Cloudflare Pages or Netlify
+# instead - both serve private repos free. See the README.
 name: Deploy to GitHub Pages
 
 on:
@@ -39,15 +46,8 @@ jobs:
       - name: Test
         run: npm test
 
-      - name: Build the standalone site
-        run: |
-          npm run build:standalone
-          mkdir -p _site
-          cp dist/travel-go.html _site/index.html
-          # Bypass Jekyll, which would otherwise ignore files starting with _.
-          touch _site/.nojekyll
-          # A custom domain, when one is configured in CNAME at the repo root.
-          if [ -f CNAME ]; then cp CNAME _site/CNAME; fi
+      - name: Build the site
+        run: npm run build:site
 
       - uses: actions/upload-pages-artifact@v3
         with:

@@ -4,22 +4,41 @@ A trip search that ranks options against **your** priorities instead of a
 default one. You rate each thing 1–5 (or N/A to drop it entirely), and flights
 and hotels are scored, ordered, and explained against those weights.
 
-## Live site
+## Deploying the site
 
-The static build deploys to GitHub Pages from `.github/workflows/pages.yml`:
+`npm run build:site` produces `_site/` — one `index.html`, no dependencies, no
+server. Every host below deploys that same output.
 
-**https://matteoblandino2004.github.io/Travel-Go/**
+### Cloudflare Pages or Netlify — works with a private repository
 
-One-time setup, in the repository's own settings: **Settings → Pages → Build
-and deployment → Source: GitHub Actions**. Every push then rebuilds and
-redeploys. Until that setting is changed the workflow's build step passes and
-its deploy step fails, which is the expected signal that Pages isn't switched
-on yet.
+Both serve private repos on their free tier. Netlify reads `netlify.toml`
+directly; for Cloudflare Pages, set **Build command** `npm run build:site` and
+**Output directory** `_site`. You get `travel-go.pages.dev` or
+`travel-go.netlify.app`, and a custom domain is a dashboard field.
 
-To put it on a domain you own, add a `CNAME` file at the repo root containing
-just the hostname (`travelgo.app`), point that host's DNS at GitHub, and set
-the domain under Settings → Pages. The workflow already copies `CNAME` into
-the published site.
+### GitHub Pages — needs a public repository
+
+`.github/workflows/pages.yml` builds and deploys to
+`https://<user>.github.io/Travel-Go/`. Three things must be true, and none of
+them is reachable through the API:
+
+1. **The repository is public**, or the account is on GitHub Pro or above —
+   Pages is not available for private repositories on the free plan.
+2. **Settings → Pages → Build and deployment → Source: GitHub Actions.**
+3. **The workflow runs on the default branch.** Enabling Pages creates a
+   `github-pages` environment that by default only permits deployments from
+   the default branch, so a feature branch is rejected even when the rest is
+   correct.
+
+A deploy step failing with `HttpError: Not Found` while the build step passes
+means one of the first two is unmet.
+
+### A domain you own
+
+Put the bare hostname in a `CNAME` file at the repo root — `npm run
+build:site` copies it into the published output — then point the domain's DNS
+at your host and set it in that host's dashboard. Cloudflare and Namecheap
+both sell domains for roughly $10–15/year.
 
 ## Two ways to use it
 
