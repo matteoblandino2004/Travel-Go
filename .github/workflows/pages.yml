@@ -15,11 +15,14 @@
 # instead - both serve private repos free. See the README.
 name: Deploy to GitHub Pages
 
+# Only the default branch, because that is the only branch this can ever
+# succeed from: the `github-pages` environment created when Pages is enabled
+# permits deployments from the default branch alone. Running it on a feature
+# branch just hangs a permanently-red deploy check on the pull request.
 on:
   push:
     branches:
       - main
-      - claude/travel-booking-preference-ranking-vpm0x1
   workflow_dispatch:
 
 permissions:

@@ -28,7 +28,7 @@ them is reachable through the API:
 3. **The workflow runs on the default branch.** Enabling Pages creates a
    `github-pages` environment that by default only permits deployments from
    the default branch, so a feature branch is rejected even when the rest is
-   correct.
+   correct — which is why `pages.yml` triggers on `main` only.
 
 A deploy step failing with `HttpError: Not Found` while the build step passes
 means one of the first two is unmet.
