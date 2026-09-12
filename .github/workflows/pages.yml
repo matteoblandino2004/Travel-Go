@@ -58,6 +58,12 @@ jobs:
 
   deploy:
     needs: build
+    # GitHub Pages only accepts deployments from the default branch. Running
+    # this anywhere else - a manual dispatch on a feature branch, say - gets
+    # the job rejected before its first step, which surfaces as a failure with
+    # no steps and no logs and reads like a broken change. Skipping instead
+    # keeps the build's validation and states the reason here.
+    if: github.ref_name == github.event.repository.default_branch
     runs-on: ubuntu-latest
     environment:
       name: github-pages
