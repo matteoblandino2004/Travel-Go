@@ -17,8 +17,13 @@ const $ = (id) => document.getElementById(id);
 /** Server-backed when served by `npm start`; in-page in the standalone build. */
 const backend = getBackend();
 
-/** One colour per criterion, reused by the bar and the breakdown swatches. */
-const PALETTE = ['#1f6feb', '#e0a13a', '#1a7f5a', '#8b5cf6', '#d9576c', '#2fa8b8', '#a3763b'];
+/**
+ * One colour per criterion, reused by the contribution bar and the breakdown
+ * swatches. Tuned for a black ground and held at a similar lightness so no
+ * single criterion looks more important than another - the widths carry that.
+ * The first two deliberately echo the page's teal and brass.
+ */
+const PALETTE = ['#7fd7df', '#e3a445', '#8fb573', '#a48fd0', '#e0796c', '#5ba3c9', '#c9a87f'];
 
 const state = {
   reference: null,

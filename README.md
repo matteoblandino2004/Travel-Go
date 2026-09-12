@@ -4,12 +4,30 @@ A trip search that ranks options against **your** priorities instead of a
 default one. You rate each thing 1–5 (or N/A to drop it entirely), and flights
 and hotels are scored, ordered, and explained against those weights.
 
+## Live site
+
+The static build deploys to GitHub Pages from `.github/workflows/pages.yml`:
+
+**https://matteoblandino2004.github.io/Travel-Go/**
+
+One-time setup, in the repository's own settings: **Settings → Pages → Build
+and deployment → Source: GitHub Actions**. Every push then rebuilds and
+redeploys. Until that setting is changed the workflow's build step passes and
+its deploy step fails, which is the expected signal that Pages isn't switched
+on yet.
+
+To put it on a domain you own, add a `CNAME` file at the repo root containing
+just the hostname (`travelgo.app`), point that host's DNS at GitHub, and set
+the domain under Settings → Pages. The workflow already copies `CNAME` into
+the published site.
+
 ## Two ways to use it
 
-**A hosted page** — one link, nothing to install, works on a phone. It ranks
+**The hosted site** — one link, nothing to install, works on a phone. It ranks
 generated flights and hotels for any of 7,916 airports, and real fares go in by
-[pasting them](#pasting-flights-in) from a search page. Built by
-`npm run build:standalone` into a single self-contained HTML file.
+[pasting them](#pasting-flights-in) from a search page. `npm run
+build:standalone` packs it into a single self-contained HTML file, which is
+what GitHub Pages serves.
 
 **Locally, or on your own host** — the full thing: live supplier APIs, place
 search for anywhere, and the plain-English intake reading through Claude.

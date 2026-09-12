@@ -1,0 +1,64 @@
+# Publishes the standalone build to GitHub Pages.
+#
+# One-time setup: repository Settings -> Pages -> Build and deployment ->
+# Source: "GitHub Actions". After that every push to this branch redeploys.
+#
+# Pages serves static files, which is exactly what the standalone build is.
+# The full Node server (live suppliers, geocoding) needs a real host - see
+# render.yaml and the README.
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+      - claude/travel-booking-preference-ranking-vpm0x1
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Let a run finish rather than cancelling it; deploys are quick and idempotent.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # No dependencies to install - the tests and the build are both stdlib.
+      - name: Test
+        run: npm test
+
+      - name: Build the standalone site
+        run: |
+          npm run build:standalone
+          mkdir -p _site
+          cp dist/travel-go.html _site/index.html
+          # Bypass Jekyll, which would otherwise ignore files starting with _.
+          touch _site/.nojekyll
+          # A custom domain, when one is configured in CNAME at the repo root.
+          if [ -f CNAME ]; then cp CNAME _site/CNAME; fi
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
