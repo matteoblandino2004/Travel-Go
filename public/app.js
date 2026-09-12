@@ -63,16 +63,21 @@ async function init() {
  * does and doesn't do rather than leaving someone to discover it.
  */
 function renderScopeNote() {
+  const airports = state.reference.coverage.airports.toLocaleString('en-US');
+  const coverage = $('foot-coverage');
+  if (coverage) coverage.textContent = `${airports} airports in ${state.reference.coverage.countries} countries`;
+  const nav = $('nav-coverage');
+  if (nav) nav.textContent = `${airports} airports`;
+
   if (!state.reference.standalone) return;
   const note = document.createElement('p');
   note.className = 'scope-note';
   note.innerHTML =
-    'This hosted version ranks <strong>generated</strong> flights and hotels for any of ' +
-    `${state.reference.coverage.airports.toLocaleString('en-US')} airports. ` +
-    'For real fares, paste them in from a search page — the box above the flight results. ' +
+    `This hosted version ranks <strong>generated</strong> flights and hotels across all ${airports} airports. ` +
+    'For real fares, paste them in from a search page — the box just below. ' +
     'Places resolve from a curated list, or from coordinates typed as <code>35.68, 139.77</code>. ' +
-    'Running it locally adds live suppliers and place search for anywhere.';
-  document.querySelector('.foot').prepend(note);
+    'Run it locally and you also get live supplier data and place search for anywhere.';
+  document.querySelector('#panel-flights .results').prepend(note);
 }
 
 function defaultDate() {
@@ -84,6 +89,26 @@ function defaultDate() {
 function wireEvents() {
   $('btn-search').addEventListener('click', () => runSearch());
   for (const id of ['f-from', 'f-to']) wirePlaceAutocomplete($(id));
+
+  $('btn-swap').addEventListener('click', () => {
+    const [from, to] = [$('f-from').value, $('f-to').value];
+    $('f-from').value = to;
+    $('f-to').value = from;
+    runSearch();
+  });
+
+  $('btn-describe').addEventListener('click', () => {
+    const intake = $('intake');
+    intake.hidden = !intake.hidden;
+    $('btn-describe').setAttribute('aria-expanded', String(!intake.hidden));
+    if (!intake.hidden) $('intake-text').focus();
+  });
+
+  // Enter anywhere in the search card runs the search rather than reloading.
+  $('search-form').addEventListener('submit', (event) => {
+    event.preventDefault();
+    runSearch();
+  });
   $('btn-read').addEventListener('click', () => readIntake());
   $('btn-add-place').addEventListener('click', () => addPlaceFromInput());
   $('btn-import').addEventListener('click', () => importFlights());
@@ -471,18 +496,15 @@ function renderResults(list, ranked, view) {
       .join('');
 
     li.innerHTML = `
-      <div class="result-top">
-        <span class="rank">${result.rank}</span>
-        <div class="result-main">
-          <p class="result-title">${esc(v.title)}</p>
-          <p class="result-sub">${esc(v.subtitle)}</p>
-        </div>
-        <div class="score">
-          <div class="score-value">${result.score.toFixed(1)}</div>
-          <span class="score-label">match</span>
-        </div>
+      <div class="result-stub">
+        <span class="rank">#${result.rank}</span>
+        <span class="score-value">${Math.round(result.score)}</span>
+        <span class="score-label">match</span>
       </div>
-      <div class="bar-track"><div class="bar" style="width:${Math.max(2, result.score)}%">${segments}</div></div>
+      <div class="result-body">
+        <p class="result-title">${esc(v.title)}</p>
+        <p class="result-sub">${esc(v.subtitle)}</p>
+        <div class="bar-track"><div class="bar" style="width:${Math.max(2, result.score)}%">${segments}</div></div>
       <div class="facts">${v.facts
         .map(([k, val, isEstimate]) =>
           isEstimate
@@ -495,10 +517,11 @@ function renderResults(list, ranked, view) {
         ${result.cons.map((c) => `<span class="chip con">↓ ${esc(c.label)} · ${esc(c.display)}</span>`).join('')}
       </div>
       <details>
-        <summary>${esc(explain(result))}</summary>
-        ${breakdownTable(result, colours)}
-        ${v.legs?.length ? legsList(v.legs) : ''}
-      </details>`;
+          <summary>${esc(explain(result))}</summary>
+          ${breakdownTable(result, colours)}
+          ${v.legs?.length ? legsList(v.legs) : ''}
+        </details>
+      </div>`;
     list.append(li);
   }
 }

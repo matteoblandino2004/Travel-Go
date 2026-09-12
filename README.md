@@ -159,6 +159,13 @@ HttpOnly cookie. Locally, leave it unset and nothing is gated.
 Add your keys as environment variables in the dashboard; they're declared there
 with `sync: false` so they never live in the repo.
 
+**Your own domain.** Hosting gives you something like
+`travel-go.onrender.com`. To get `travelgo.app` instead: buy the domain
+(Cloudflare and Namecheap are both around $10–15/year — Cloudflare sells at
+cost), then in Render → Settings → Custom Domains add it, and copy the CNAME
+record it gives you into your registrar's DNS. TLS is issued automatically and
+takes a few minutes. Every other host works the same way.
+
 **Docker** — anywhere that runs a container:
 
 ```bash

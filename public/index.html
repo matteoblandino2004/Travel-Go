@@ -4,167 +4,277 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Travel-Go</title>
+  <meta name="description" content="Rate what matters 1–5 and get flights and hotels ranked against your priorities, not a default one." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" />
   <link rel="stylesheet" href="/styles.css" />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='13' font-size='13'>✈️</text></svg>" />
 </head>
 <body>
-  <header class="topbar">
-    <div class="wrap topbar-inner">
-      <h1><span aria-hidden="true">✈</span> Travel-Go</h1>
-      <p class="tagline">Rate what matters 1–5. Everything gets ranked against <em>your</em> weights, not a default one.</p>
+  <a class="skip" href="#results">Skip to results</a>
+
+  <header class="masthead">
+    <div class="wrap masthead-inner">
+      <a class="wordmark" href="#top">
+        <svg class="wordmark-mark" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M2 13.5 22 4l-4.5 9.5L22 20l-6-2.5-3.5 3.5-1-5.5z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" />
+        </svg>
+        <span>Travel-Go</span>
+      </a>
+      <nav class="masthead-nav" aria-label="Sections">
+        <a href="#results">Search</a>
+        <a href="#how">How ranking works</a>
+        <a href="#coverage" id="nav-coverage">Coverage</a>
+      </nav>
     </div>
   </header>
 
-  <main class="wrap">
-    <!-- Plain-English intake -->
-    <section class="card intake">
-      <label class="field-label" for="intake-text">Describe the trip</label>
-      <textarea id="intake-text" rows="3"
-        placeholder="e.g. SFO to Tokyo in October for 5 nights. Cheapest I can get but nonstop, morning departure. I want to be near Senso-ji and Tsukiji, and I don't care about miles."></textarea>
-      <div class="intake-actions">
-        <button id="btn-read" class="btn btn-primary" type="button">Read this &amp; set my ratings</button>
-        <span id="intake-status" class="status" role="status" aria-live="polite"></span>
+  <main id="top">
+    <!-- Hero: the search is the hero. -->
+    <section class="hero">
+      <div class="wrap hero-inner">
+        <div class="hero-copy">
+          <p class="eyebrow">Ranked your way</p>
+          <h1>Every flight search decides for you. This one asks first.</h1>
+          <p class="lede">
+            Rate cost, departure time, layovers, miles, lounge access — 1 to 5, or N/A to
+            drop it entirely. Flights and hotels are scored against <em>your</em> weights
+            and every result shows its working.
+          </p>
+        </div>
+
+        <!-- Search card, shaped like a ticket: search stub on the right. -->
+        <form class="ticket" id="search-form" autocomplete="off">
+          <div class="ticket-main">
+            <div class="field field-place">
+              <label class="field-label" for="f-from">From</label>
+              <input id="f-from" list="city-list" value="San Francisco" placeholder="City or airport" />
+            </div>
+            <button class="swap" id="btn-swap" type="button" aria-label="Swap origin and destination">
+              <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                <path d="M2 5.5h10.5m0 0L10 3m2.5 2.5L10 8M14 10.5H3.5m0 0L6 8m-2.5 2.5L6 13"
+                      fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </button>
+            <div class="field field-place">
+              <label class="field-label" for="f-to">To</label>
+              <input id="f-to" list="city-list" value="Tokyo" placeholder="City or airport" />
+            </div>
+            <div class="field">
+              <label class="field-label" for="f-date">Depart</label>
+              <input id="f-date" type="date" />
+            </div>
+            <div class="field field-tight">
+              <label class="field-label" for="f-nights">Nights</label>
+              <input id="f-nights" type="number" min="1" max="60" value="5" />
+            </div>
+            <div class="field field-tight">
+              <label class="field-label" for="f-cabin">Cabin</label>
+              <select id="f-cabin">
+                <option value="economy">Economy</option>
+                <option value="premium">Premium</option>
+                <option value="business">Business</option>
+                <option value="first">First</option>
+              </select>
+            </div>
+          </div>
+          <div class="ticket-stub">
+            <button id="btn-search" class="btn btn-primary btn-search" type="button">Search</button>
+            <button class="linkish" id="btn-describe" type="button" aria-expanded="false" aria-controls="intake">
+              or describe your trip
+            </button>
+          </div>
+        </form>
+        <datalist id="city-list"></datalist>
+
+        <!-- Plain-English intake, folded away until asked for. -->
+        <div class="intake" id="intake" hidden>
+          <label class="field-label" for="intake-text">Describe the trip in your own words</label>
+          <textarea id="intake-text" rows="2"
+            placeholder="SFO to Tokyo in October for 5 nights. Cheapest I can get but nonstop, morning departure. I want to be near Senso-ji, and I don't care about miles."></textarea>
+          <div class="intake-actions">
+            <button id="btn-read" class="btn btn-primary btn-small" type="button">Read this &amp; set my ratings</button>
+            <span id="intake-status" class="status" role="status" aria-live="polite"></span>
+          </div>
+          <ul id="intake-notes" class="notes" hidden></ul>
+        </div>
+
+        <p id="provider-note" class="provider-note"></p>
+        <p id="search-error" class="error" hidden></p>
       </div>
-      <ul id="intake-notes" class="notes" hidden></ul>
     </section>
 
-    <!-- Search parameters -->
-    <section class="card search">
-      <div class="search-grid">
-        <div class="field">
-          <label class="field-label" for="f-from">From</label>
-          <input id="f-from" list="city-list" value="San Francisco" autocomplete="off" />
+    <!-- Working area -->
+    <section class="workspace" id="results">
+      <div class="wrap">
+        <div class="tabs" role="tablist">
+          <button class="tab is-active" role="tab" aria-selected="true" data-panel="flights">Flights</button>
+          <button class="tab" role="tab" aria-selected="false" data-panel="hotels">Hotels</button>
         </div>
-        <div class="field">
-          <label class="field-label" for="f-to">To</label>
-          <input id="f-to" list="city-list" value="Tokyo" autocomplete="off" />
+
+        <!-- Flights -->
+        <div class="panel" id="panel-flights">
+          <div class="layout">
+            <aside class="rail">
+              <div class="rail-card">
+                <h2>What matters to you</h2>
+                <p class="rail-hint">1 = barely · 5 = decisive · N/A leaves it out of the maths entirely.</p>
+                <div id="flight-criteria" class="criteria"></div>
+
+                <details class="fold">
+                  <summary>Preferred times of day</summary>
+                  <div class="window-row">
+                    <span class="window-label">Depart between</span>
+                    <input type="time" id="dep-start" value="08:00" />
+                    <span class="dash">–</span>
+                    <input type="time" id="dep-end" value="12:00" />
+                    <label class="check"><input type="checkbox" id="dep-enabled" /> use</label>
+                  </div>
+                  <div class="window-row">
+                    <span class="window-label">Arrive between</span>
+                    <input type="time" id="arr-start" value="10:00" />
+                    <span class="dash">–</span>
+                    <input type="time" id="arr-end" value="20:00" />
+                    <label class="check"><input type="checkbox" id="arr-enabled" /> use</label>
+                  </div>
+                  <p class="rail-hint">With no window set, times use a general curve: 4am departures and 1am arrivals lose points.</p>
+                </details>
+              </div>
+            </aside>
+
+            <div class="results">
+              <details class="import">
+                <summary>Paste real flights from a search page</summary>
+                <p class="rail-hint">
+                  Run your search on Google Flights, Kayak or an airline site, select the result
+                  rows — prices included — copy, and paste here. No account or API key needed.
+                  A CSV or JSON list works too.
+                </p>
+                <textarea id="import-text" rows="5" placeholder="10:15 AM – 2:30 PM+1&#10;ANA&#10;11 hr 15 min&#10;SFO–HND&#10;Nonstop&#10;$1,247&#10;…"></textarea>
+                <div class="import-actions">
+                  <button id="btn-import" class="btn btn-primary btn-small" type="button">Import &amp; rank these</button>
+                  <button id="btn-import-clear" class="btn btn-small" type="button" hidden>Back to generated data</button>
+                  <span id="import-status" class="status" role="status" aria-live="polite"></span>
+                </div>
+                <ul id="import-notes" class="notes" hidden></ul>
+              </details>
+
+              <div class="results-head">
+                <h2 id="flights-heading">Flights</h2>
+                <span id="flights-count" class="muted"></span>
+              </div>
+              <ol id="flight-results" class="result-list"></ol>
+            </div>
+          </div>
         </div>
-        <div class="field">
-          <label class="field-label" for="f-date">Depart</label>
-          <input id="f-date" type="date" />
+
+        <!-- Hotels -->
+        <div class="panel" id="panel-hotels" hidden>
+          <div class="layout">
+            <aside class="rail">
+              <div class="rail-card">
+                <h2>What matters to you</h2>
+                <p class="rail-hint">1 = barely · 5 = decisive · N/A leaves it out of the maths entirely.</p>
+                <div id="hotel-criteria" class="criteria"></div>
+
+                <h3 class="rail-subhead">How will you get around?</h3>
+                <div class="modes" role="group" aria-label="Ways of getting around">
+                  <label class="check"><input type="checkbox" class="mode" value="walk" checked /> Walk</label>
+                  <label class="check"><input type="checkbox" class="mode" value="transit" checked /> Transit</label>
+                  <label class="check"><input type="checkbox" class="mode" value="taxi" checked /> Taxi / car</label>
+                </div>
+                <p id="transit-note" class="rail-hint"></p>
+
+                <h3 class="rail-subhead">Places you want to be near</h3>
+                <p class="rail-hint">Rate each one too — a 5 is somewhere the whole trip is built around.</p>
+                <ul id="place-list" class="place-list"></ul>
+                <div class="place-add">
+                  <input id="place-input" list="poi-list" placeholder="A sight, a restaurant, or 35.68, 139.77" />
+                  <datalist id="poi-list"></datalist>
+                  <button id="btn-add-place" class="btn btn-small" type="button">Add</button>
+                </div>
+                <p id="place-warning" class="warn" hidden></p>
+              </div>
+            </aside>
+
+            <div class="results">
+              <div class="results-head">
+                <h2 id="hotels-heading">Hotels</h2>
+                <span id="hotels-count" class="muted"></span>
+              </div>
+              <ol id="hotel-results" class="result-list"></ol>
+            </div>
+          </div>
         </div>
-        <div class="field field-narrow">
-          <label class="field-label" for="f-nights">Nights</label>
-          <input id="f-nights" type="number" min="1" max="60" value="5" />
-        </div>
-        <div class="field field-narrow">
-          <label class="field-label" for="f-cabin">Cabin</label>
-          <select id="f-cabin">
-            <option value="economy">Economy</option>
-            <option value="premium">Premium</option>
-            <option value="business">Business</option>
-            <option value="first">First</option>
-          </select>
-        </div>
-        <button id="btn-search" class="btn btn-primary" type="button">Search</button>
       </div>
-      <datalist id="city-list"></datalist>
-      <p id="provider-note" class="provider-note"></p>
-      <p id="search-error" class="error" hidden></p>
     </section>
 
-    <div class="tabs" role="tablist">
-      <button class="tab is-active" role="tab" aria-selected="true" data-panel="flights">Flights</button>
-      <button class="tab" role="tab" aria-selected="false" data-panel="hotels">Hotels</button>
-    </div>
-
-    <!-- Flights -->
-    <section class="panel" id="panel-flights">
-      <div class="layout">
-        <aside class="card controls">
-          <h2>How much does each matter?</h2>
-          <p class="controls-hint">1 = barely · 5 = decisive · N/A = leave it out of the maths entirely.</p>
-          <div id="flight-criteria" class="criteria"></div>
-
-          <details class="windows">
-            <summary>Preferred times of day</summary>
-            <div class="window-row">
-              <span class="window-label">Depart between</span>
-              <input type="time" id="dep-start" value="08:00" />
-              <span class="dash">–</span>
-              <input type="time" id="dep-end" value="12:00" />
-              <label class="check"><input type="checkbox" id="dep-enabled" /> use</label>
-            </div>
-            <div class="window-row">
-              <span class="window-label">Arrive between</span>
-              <input type="time" id="arr-start" value="10:00" />
-              <span class="dash">–</span>
-              <input type="time" id="arr-end" value="20:00" />
-              <label class="check"><input type="checkbox" id="arr-enabled" /> use</label>
-            </div>
-            <p class="controls-hint">Without a window, times are scored on a generic curve: 4am departures and 1am arrivals lose points.</p>
-          </details>
-        </aside>
-
-        <div class="results">
-          <details class="card import">
-            <summary>Paste real flights from a search page</summary>
-            <p class="controls-hint">
-              Run your search on Google Flights, Kayak, Skyscanner or an airline site,
-              select the result rows — prices included — copy, and paste here. No account
-              or API key needed. A CSV or JSON list works too.
+    <!-- What makes the ranking different. Real mechanics, not marketing. -->
+    <section class="explainer" id="how">
+      <div class="wrap">
+        <h2 class="explainer-head">How the ranking actually works</h2>
+        <div class="explainer-grid">
+          <article>
+            <h3>A 5 really outranks a 1</h3>
+            <p>
+              Your rating becomes a weight of <code>n<sup>1.6</sup></code>, normalised across
+              everything you rated. A 5 pulls about <strong>13×</strong> as hard as a 1 — on a
+              linear scale, three mid-rated criteria gang up and drown out the one thing you
+              said mattered. Only the ratios count: rating everything 5 ranks the same as
+              rating everything 3.
             </p>
-            <textarea id="import-text" rows="5" placeholder="10:15 AM – 2:30 PM+1&#10;ANA&#10;11 hr 15 min&#10;SFO–HND&#10;Nonstop&#10;$1,247&#10;…"></textarea>
-            <div class="import-actions">
-              <button id="btn-import" class="btn btn-primary btn-small" type="button">Import &amp; rank these</button>
-              <button id="btn-import-clear" class="btn btn-small" type="button" hidden>Back to generated data</button>
-              <span id="import-status" class="status" role="status" aria-live="polite"></span>
-            </div>
-            <ul id="import-notes" class="notes" hidden></ul>
-          </details>
-
-          <div class="results-head">
-            <h2 id="flights-heading">Flights</h2>
-            <span id="flights-count" class="muted"></span>
-          </div>
-          <ol id="flight-results" class="result-list"></ol>
-        </div>
-      </div>
-    </section>
-
-    <!-- Hotels -->
-    <section class="panel" id="panel-hotels" hidden>
-      <div class="layout">
-        <aside class="card controls">
-          <h2>How much does each matter?</h2>
-          <p class="controls-hint">1 = barely · 5 = decisive · N/A = leave it out of the maths entirely.</p>
-          <div id="hotel-criteria" class="criteria"></div>
-
-          <h3 class="places-title">How will you get around?</h3>
-          <div class="modes" role="group" aria-label="Ways of getting around">
-            <label class="check"><input type="checkbox" class="mode" value="walk" checked /> Walk</label>
-            <label class="check"><input type="checkbox" class="mode" value="transit" checked /> Transit</label>
-            <label class="check"><input type="checkbox" class="mode" value="taxi" checked /> Taxi / car</label>
-          </div>
-          <p id="transit-note" class="controls-hint"></p>
-
-          <h3 class="places-title">Places you want to be near</h3>
-          <p class="controls-hint">Rate each one too — a 5 is somewhere the whole trip is built around.</p>
-          <ul id="place-list" class="place-list"></ul>
-          <div class="place-add">
-            <input id="place-input" list="poi-list" placeholder="Add a sight or restaurant…" autocomplete="off" />
-            <datalist id="poi-list"></datalist>
-            <button id="btn-add-place" class="btn btn-small" type="button">Add</button>
-          </div>
-          <p id="place-warning" class="warn" hidden></p>
-        </aside>
-
-        <div class="results">
-          <div class="results-head">
-            <h2 id="hotels-heading">Hotels</h2>
-            <span id="hotels-count" class="muted"></span>
-          </div>
-          <ol id="hotel-results" class="result-list"></ol>
+          </article>
+          <article>
+            <h3>N/A means gone, not “low”</h3>
+            <p>
+              A criterion you mark N/A gets weight zero and is excluded from the score, the
+              explanations, and the breakdown table. It cannot quietly break a tie behind
+              your back — which is what “low priority” does on every other site.
+            </p>
+          </article>
+          <article>
+            <h3>Scores are relative to what's on screen</h3>
+            <p>
+              “Cost 5” means cheapest <em>of these options</em>. Each scale is built from the
+              whole result set using Tukey fences, so one £8,000 first-class fare can't
+              squash every real difference between the economy fares. Layover counts and
+              walking minutes use fixed curves instead — a connection costs you the same
+              however good the alternatives are.
+            </p>
+          </article>
+          <article>
+            <h3>Hotels are scored on where you're going</h3>
+            <p>
+              Name the sights and restaurants you're actually going for and every hotel is
+              scored on door-to-door travel time to them — 75% weighted average, 25% worst
+              must-see. Without that second term, a hotel on top of four cafés you rated 2
+              beats one a sensible ride from the museum you rated 5.
+            </p>
+          </article>
         </div>
       </div>
     </section>
   </main>
 
-  <footer class="wrap foot">
-    <p>Scores are relative to the options on screen: “cost 5” means cheapest <em>of these</em>. Miles and lounge access are estimated from the fare, cabin and your status — no flight supplier publishes them. See the README for connecting a live supplier.</p>
+  <footer class="foot" id="coverage">
+    <div class="wrap foot-inner">
+      <div>
+        <p class="foot-lead">
+          Travel-Go covers <strong id="foot-coverage">every city with an airport</strong>.
+          Miles and lounge access are estimated from the fare, cabin and your status — no
+          flight supplier publishes them.
+        </p>
+        <p class="muted">
+          Not affiliated with any airline, hotel or booking site. Prices shown are not
+          offers to sell.
+        </p>
+      </div>
+      <nav class="foot-links" aria-label="About">
+        <a href="https://github.com/matteoblandino2004/Travel-Go">Source on GitHub</a>
+        <a href="#how">How ranking works</a>
+      </nav>
+    </div>
   </footer>
 
   <script type="module" src="/app.js"></script>
