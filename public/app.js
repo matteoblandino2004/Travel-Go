@@ -10,8 +10,12 @@
 import { rankFlights, FLIGHT_CRITERIA } from '/src/core/flights.js';
 import { rankHotels, HOTEL_CRITERIA } from '/src/core/hotels.js';
 import { explain } from '/src/core/rank.js';
+import { getBackend } from './backend.js';
 
 const $ = (id) => document.getElementById(id);
+
+/** Server-backed when served by `npm start`; in-page in the standalone build. */
+const backend = getBackend();
 
 /** One colour per criterion, reused by the bar and the breakdown swatches. */
 const PALETTE = ['#1f6feb', '#e0a13a', '#1a7f5a', '#8b5cf6', '#d9576c', '#2fa8b8', '#a3763b'];
@@ -35,7 +39,7 @@ const state = {
 init().catch((err) => showSearchError(err.message));
 
 async function init() {
-  state.reference = await getJson('/api/reference');
+  state.reference = await backend.reference();
 
   for (const c of FLIGHT_CRITERIA) state.flight[c.key] = 3;
   for (const c of HOTEL_CRITERIA) state.hotel[c.key] = 3;
@@ -49,8 +53,26 @@ async function init() {
   renderCriteria($('hotel-criteria'), HOTEL_CRITERIA, state.hotel, rerender);
 
   $('f-date').value = defaultDate();
+  renderScopeNote();
   wireEvents();
   await runSearch();
+}
+
+/**
+ * The hosted build can't reach a geocoder or a fare supplier, so say what it
+ * does and doesn't do rather than leaving someone to discover it.
+ */
+function renderScopeNote() {
+  if (!state.reference.standalone) return;
+  const note = document.createElement('p');
+  note.className = 'scope-note';
+  note.innerHTML =
+    'This hosted version ranks <strong>generated</strong> flights and hotels for any of ' +
+    `${state.reference.coverage.airports.toLocaleString('en-US')} airports. ` +
+    'For real fares, paste them in from a search page — the box above the flight results. ' +
+    'Places resolve from a curated list, or from coordinates typed as <code>35.68, 139.77</code>. ' +
+    'Running it locally adds live suppliers and place search for anywhere.';
+  document.querySelector('.foot').prepend(note);
 }
 
 function defaultDate() {
@@ -104,7 +126,7 @@ function wirePlaceAutocomplete(input) {
     timer = setTimeout(async () => {
       lastQuery = query;
       try {
-        const { results } = await getJson(`/api/places?q=${encodeURIComponent(query)}&limit=8`);
+        const { results } = await backend.places(query, 8);
         $('city-list').innerHTML = results
           .map((r) => `<option value="${esc(r.name)}">${esc(r.label)}</option>`)
           .join('');
@@ -231,7 +253,7 @@ async function addPlace(place) {
   }
 
   try {
-    const { place: located } = await postJson('/api/geocode', { name: entry.name, to: $('f-to').value });
+    const { place: located } = await backend.geocode({ name: entry.name, to: $('f-to').value });
     if (located) {
       Object.assign(entry, {
         name: located.name ?? entry.name,
@@ -307,7 +329,7 @@ async function runSearch() {
   button.disabled = true;
   showSearchError(null);
   try {
-    state.search = await postJson('/api/search', {
+    state.search = await backend.search({
       from: $('f-from').value,
       to: $('f-to').value,
       date: $('f-date').value,
@@ -535,7 +557,7 @@ async function importFlights() {
   $('import-status').textContent = 'Reading…';
 
   try {
-    const result = await postJson('/api/import/flights', {
+    const result = await backend.importFlights({
       text,
       from: $('f-from').value,
       to: $('f-to').value,
@@ -600,7 +622,7 @@ async function readIntake() {
   $('intake-status').textContent = 'Reading…';
 
   try {
-    const parsed = await postJson('/api/parse', { text });
+    const parsed = await backend.parse({ text });
 
     if (parsed.origin) $('f-from').value = parsed.origin;
     if (parsed.destination) $('f-to').value = parsed.destination;
@@ -676,9 +698,8 @@ function renderProviderNote(search) {
   const destination = search.destination ?? {};
   if (destination.centre?.approximate) {
     parts.push(
-      `<span class="provider-warn">No geocoder, so hotels are placed around ${esc(
-        destination.airports?.[0] ?? 'the airport'
-      )} rather than the city centre.</span>`
+      `<span class="provider-warn">We don't have a centre for ${esc(destination.name ?? 'this city')}, so hotels
+       are placed around ${esc(destination.airports?.[0] ?? 'the airport')} instead. Travel times will be off.</span>`
     );
   }
 
@@ -717,22 +738,4 @@ function esc(value) {
   return String(value ?? '').replace(/[&<>"']/g, (c) =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]
   );
-}
-
-async function getJson(url) {
-  const res = await fetch(url);
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error ?? res.statusText);
-  return data;
-}
-
-async function postJson(url, body) {
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error ?? res.statusText);
-  return data;
 }

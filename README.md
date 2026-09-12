@@ -4,6 +4,21 @@ A trip search that ranks options against **your** priorities instead of a
 default one. You rate each thing 1–5 (or N/A to drop it entirely), and flights
 and hotels are scored, ordered, and explained against those weights.
 
+## Two ways to use it
+
+**A hosted page** — one link, nothing to install, works on a phone. It ranks
+generated flights and hotels for any of 7,916 airports, and real fares go in by
+[pasting them](#pasting-flights-in) from a search page. Built by
+`npm run build:standalone` into a single self-contained HTML file.
+
+**Locally, or on your own host** — the full thing: live supplier APIs, place
+search for anywhere, and the plain-English intake reading through Claude.
+
+The hosted page can't do those three because a page anyone can open can't hold
+a secret API key, and the viewer's content policy blocks outbound requests to a
+geocoder. Everything else is identical: same UI, same scoring engine, bundled
+from the same source files, so the two can't drift apart.
+
 ## Running it
 
 Needs **Node 20 or newer** and nothing else — there are no dependencies to
@@ -22,7 +37,8 @@ an airport — 7,916 of them, in 236 countries.
 
 ```bash
 npm run doctor      # check what's configured and make one real call to each supplier
-npm test            # 177 tests, no keys or network needed
+npm run build:standalone   # build dist/travel-go.html, the no-server version
+npm test            # 179 tests, no keys or network needed
 npm run dev         # same as start, but restarts on file changes
 PORT=8080 npm start # if 3000 is taken
 ```
@@ -124,6 +140,35 @@ npm start
 
 ---
 
+## Hosting it yourself
+
+To get the full version behind a URL. It needs no build and no dependencies, so
+most platforms need nothing but a start command.
+
+**Set an access code first.** The API has no accounts: without one, anyone who
+finds the address can spend your supplier quota.
+
+```bash
+TRAVELGO_ACCESS_CODE=something-only-you-know
+```
+
+With that set, the site asks for the code once and remembers it in an
+HttpOnly cookie. Locally, leave it unset and nothing is gated.
+
+**Render** — push the repo, then New → Blueprint and point it at `render.yaml`.
+Add your keys as environment variables in the dashboard; they're declared there
+with `sync: false` so they never live in the repo.
+
+**Docker** — anywhere that runs a container:
+
+```bash
+docker build -t travel-go .
+docker run -p 3000:3000 --env-file .env travel-go
+```
+
+**Anything else** (Fly, Railway, a VPS) — `node src/server/server.js`, listening
+on `PORT`. Health check: `GET /api/reference`.
+
 ## Layout
 
 ```
@@ -150,8 +195,10 @@ src/data/      where offers come from
 src/nl/        plain-English intake (Claude + offline fallback)
 src/server/    zero-dependency HTTP API and static host
 public/        the front end
-scripts/       doctor (verify your setup), build-airports (refresh the dataset)
-test/          177 tests, including recorded supplier responses
+scripts/       doctor (verify a setup), build-airports (refresh the dataset),
+               bundle + build-standalone (the single-file hosted build)
+dist/          travel-go.html, built - the whole app in one file
+test/          179 tests, including recorded supplier responses
 ```
 
 The browser imports the **same** modules from `src/core` that the API uses, so

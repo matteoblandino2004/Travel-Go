@@ -16,7 +16,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const DATA_PATH = path.join(path.dirname(fileURLToPath(import.meta.url)), 'airports.json');
+/**
+ * Resolved lazily, and only on the Node path: the single-file browser build
+ * injects the dataset instead, and has no filesystem to point at.
+ */
+const dataPath = () => path.join(path.dirname(fileURLToPath(import.meta.url)), 'airports.json');
 
 /**
  * Names people actually use that the source data doesn't carry.
@@ -50,11 +54,22 @@ const ALIASES = {
 
 /** Built once, on first use - most requests never touch it. */
 let index = null;
+/** Set by the browser build, which inlines the dataset instead of reading it. */
+let injected = null;
+
+/**
+ * Supply the dataset directly, for environments with no filesystem.
+ * The standalone single-file build calls this with the JSON inlined.
+ */
+export function setAirportData(raw) {
+  injected = raw;
+  index = null;
+}
 
 function load() {
   if (index) return index;
 
-  const raw = JSON.parse(fs.readFileSync(DATA_PATH, 'utf8'));
+  const raw = injected ?? JSON.parse(fs.readFileSync(dataPath(), 'utf8'));
   const byCode = new Map();
   const byNormalisedName = new Map();
 

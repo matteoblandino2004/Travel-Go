@@ -14,10 +14,16 @@
   --bad: #b4443a;
   --shadow: 0 1px 2px rgba(16, 22, 30, .06), 0 4px 16px rgba(16, 22, 30, .05);
   --radius: 10px;
+
+  /* Times, airport codes and fares are timetable data. They belong in mono,
+     the way a departure board sets them - and it makes columns line up. */
+  --font-ui: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-data: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
+/* Dark for a dark OS - guarded so an explicit light choice still wins. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg: #0f1216;
     --surface: #171b21;
     --surface-2: #1f242c;
@@ -33,13 +39,29 @@
   }
 }
 
+/* And again for an explicit dark choice on a light OS. */
+:root[data-theme="dark"] {
+  --bg: #0f1216;
+  --surface: #171b21;
+  --surface-2: #1f242c;
+  --ink: #e7ebf0;
+  --ink-2: #a3adba;
+  --ink-3: #767f8b;
+  --line: #2a313a;
+  --accent: #4c8dff;
+  --accent-ink: #0b1017;
+  --good: #4cc79a;
+  --bad: #e0796d;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 4px 16px rgba(0, 0, 0, .25);
+}
+
 * { box-sizing: border-box; }
 
 body {
   margin: 0;
   background: var(--bg);
   color: var(--ink);
-  font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font: 15px/1.5 var(--font-ui);
   -webkit-font-smoothing: antialiased;
 }
 
@@ -49,7 +71,7 @@ body {
 
 .topbar { background: var(--surface); border-bottom: 1px solid var(--line); }
 .topbar-inner { padding: 18px 20px; display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; }
-.topbar h1 { font-size: 19px; margin: 0; letter-spacing: -.01em; }
+.topbar h1 { font-size: 19px; margin: 0; letter-spacing: -.02em; font-weight: 600; }
 .tagline { margin: 0; color: var(--ink-2); font-size: 13.5px; }
 .tagline em { color: var(--ink); font-style: normal; font-weight: 600; }
 
@@ -156,7 +178,10 @@ textarea { resize: vertical; }
 .criterion { margin-bottom: 14px; }
 .criterion-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
 .criterion-name { font-weight: 550; font-size: 13.5px; }
-.criterion-weight { font-size: 11.5px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.criterion-weight {
+  font-size: 11px; color: var(--ink-3);
+  font-family: var(--font-data); font-variant-numeric: tabular-nums;
+}
 .criterion-hint { font-size: 12px; color: var(--ink-3); margin: 2px 0 6px; }
 
 .rating { display: flex; gap: 3px; }
@@ -219,6 +244,7 @@ textarea { resize: vertical; }
 .result-top { display: flex; align-items: flex-start; gap: 14px; }
 .rank {
   flex: 0 0 auto;
+  font-family: var(--font-data);
   width: 26px; height: 26px;
   display: grid; place-items: center;
   border-radius: 50%;
@@ -230,15 +256,24 @@ textarea { resize: vertical; }
 .result.is-top .rank { background: var(--accent); color: var(--accent-ink); }
 
 .result-main { flex: 1; min-width: 0; }
-.result-title { font-weight: 600; font-size: 14.5px; margin: 0; }
-.result-sub { color: var(--ink-2); font-size: 13px; margin: 2px 0 0; }
+.result-title { font-weight: 600; font-size: 14.5px; margin: 0; letter-spacing: -.01em; }
+.result-sub {
+  color: var(--ink-2); font-size: 13px; margin: 2px 0 0;
+  font-family: var(--font-data); font-variant-numeric: tabular-nums; letter-spacing: -.01em;
+}
 
 .score { text-align: right; flex: 0 0 auto; }
-.score-value { font-size: 20px; font-weight: 650; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+.score-value {
+  font-size: 21px; font-weight: 600; letter-spacing: -.03em;
+  font-family: var(--font-data); font-variant-numeric: tabular-nums;
+}
 .score-label { display: block; font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-3); }
 
 .facts { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 10px 0 0; font-size: 13px; color: var(--ink-2); }
-.facts b { color: var(--ink); font-weight: 550; }
+.facts b {
+  color: var(--ink); font-weight: 500;
+  font-family: var(--font-data); font-variant-numeric: tabular-nums;
+}
 
 /* Contribution bar. The track's fill length is the score out of 100; the
    segments inside it show which criteria earned it. */
@@ -256,12 +291,13 @@ textarea { resize: vertical; }
 .breakdown { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 12.5px; }
 .breakdown th, .breakdown td { text-align: left; padding: 4px 8px 4px 0; border-bottom: 1px solid var(--line); }
 .breakdown th { color: var(--ink-3); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
-.breakdown td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.breakdown td.num { text-align: right; font-family: var(--font-data); font-variant-numeric: tabular-nums; }
 .breakdown tr.ignored { color: var(--ink-3); }
 .breakdown .swatch { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 6px; }
 
 .legs { list-style: none; margin: 8px 0 0; padding: 0; font-size: 12.5px; color: var(--ink-2); }
 .legs li { display: flex; justify-content: space-between; gap: 12px; padding: 2px 0; }
+.legs li > span:last-child { font-family: var(--font-data); font-variant-numeric: tabular-nums; }
 .legs .far { color: var(--bad); }
 
 .empty { color: var(--ink-3); padding: 28px 4px; text-align: center; }
@@ -302,3 +338,18 @@ textarea { resize: vertical; }
 .import summary::marker { color: var(--ink-3); }
 .import textarea { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; }
 .import-actions { display: flex; align-items: center; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
+
+.scope-note {
+  margin: 0 0 10px; padding: 10px 12px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+  color: var(--ink-2); font-size: 12.5px; line-height: 1.55;
+}
+.scope-note strong { color: var(--ink); font-weight: 600; }
+.scope-note code {
+  font-family: var(--font-data); font-size: 11.5px;
+  background: var(--surface-2); padding: 1px 4px; border-radius: 4px;
+}

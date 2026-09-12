@@ -8,23 +8,15 @@
 
 import * as sample from './sample.js';
 import * as amadeus from './amadeus.js';
+import { enrichHotel } from './enrich.js';
+
+export { enrichHotel };
 
 export const PROVIDERS = [amadeus, sample];
 const BY_ID = new Map(PROVIDERS.map((p) => [p.id, p]));
 
 const DEFAULT_TIMEOUT_MS = 20000;
 const DEFAULT_CACHE_TTL_MS = 10 * 60 * 1000;
-
-const TIER_PERKS = {
-  none: [],
-  member: ['wifi'],
-  silver: ['wifi', 'breakfast'],
-  gold: ['wifi', 'breakfast', 'upgrade'],
-  platinum: ['wifi', 'breakfast', 'upgrade', 'lounge'],
-  top: ['wifi', 'breakfast', 'upgrade', 'lounge'],
-};
-/** Base earning is ~10 points per dollar across the big programmes. */
-const TIER_POINTS_MULTIPLIER = { none: 1, member: 1, silver: 1.2, gold: 1.5, platinum: 1.75, top: 2 };
 
 export function resolveProvider(env = process.env) {
   const requested = env.TRAVELGO_HOTEL_PROVIDER;
@@ -65,35 +57,6 @@ export function clearCache() {
   cache.clear();
 }
 
-/**
- * Loyalty standing is a property of the traveller, not the hotel - so, as with
- * flights, it's derived here rather than expected from a supplier.
- */
-export function enrichHotel(hotel, profile = {}) {
-  const out = { ...hotel };
-  const estimated = [];
-
-  const tier = hotel.program ? profile?.hotels?.[hotel.program] ?? 'none' : 'none';
-  if (out.eliteRecognition === undefined) {
-    out.eliteRecognition = tier;
-    out.perks = TIER_PERKS[tier] ?? [];
-    if (tier !== 'none') estimated.push('eliteRecognition');
-  }
-  if (out.pointsEarned === undefined) {
-    out.pointsEarned = hotel.program
-      ? Math.round((hotel.totalUsd ?? 0) * 10 * (TIER_POINTS_MULTIPLIER[tier] ?? 1))
-      : 0;
-    estimated.push('pointsEarned');
-  }
-  // A property with no star rating shouldn't be scored as a zero-star hotel.
-  if (out.stars === undefined || out.stars === null) {
-    out.stars = 3;
-    estimated.push('stars');
-  }
-
-  out.estimatedFields = [...(hotel.estimatedFields ?? []), ...estimated];
-  return out;
-}
 
 /**
  * @param {object} query `{destination:{name,cityCode,country,centre}, nights, checkIn, profile}`

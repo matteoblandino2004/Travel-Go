@@ -119,3 +119,61 @@ test('/api/parse works with no API key configured', async () => {
     assert.ok(['claude', 'rules'].includes(parsed.source));
   });
 });
+
+/* ---------------------------------------------------------------- *
+ * Access code - only matters on a hosted instance
+ * ---------------------------------------------------------------- */
+
+test('an access code gates the whole instance when one is set', async () => {
+  // The gate is read at module load, so exercise it in its own process.
+  const { spawnSync } = await import('node:child_process');
+  const script = `
+    const { createServer } = await import('./src/server/server.js');
+    const server = createServer();
+    await new Promise((r) => server.listen(0, r));
+    const base = 'http://127.0.0.1:' + server.address().port;
+    const out = {};
+
+    const page = await fetch(base + '/', { redirect: 'manual' });
+    out.pageStatus = page.status;
+    out.pageAsksForCode = (await page.text()).includes('access code');
+
+    const api = await fetch(base + '/api/reference');
+    out.apiStatus = api.status;
+
+    out.wrongCode = (await fetch(base + '/?code=nope', { redirect: 'manual' })).status;
+
+    const accepted = await fetch(base + '/?code=letmein', { redirect: 'manual' });
+    out.acceptedStatus = accepted.status;
+    const cookie = accepted.headers.get('set-cookie') ?? '';
+    out.cookieIsHttpOnly = /HttpOnly/i.test(cookie);
+
+    const authorised = await fetch(base + '/api/reference', { headers: { cookie: cookie.split(';')[0] } });
+    out.authorisedStatus = authorised.status;
+
+    server.close();
+    console.log(JSON.stringify(out));
+  `;
+  const run = spawnSync(process.execPath, ['--input-type=module', '-e', script], {
+    cwd: new URL('..', import.meta.url).pathname,
+    env: { ...process.env, TRAVELGO_ACCESS_CODE: 'letmein' },
+    encoding: 'utf8',
+  });
+  assert.equal(run.status, 0, run.stderr);
+  const result = JSON.parse(run.stdout.trim().split('\n').pop());
+
+  assert.equal(result.pageStatus, 200);
+  assert.ok(result.pageAsksForCode, 'a browser gets a form, not a raw 401');
+  assert.equal(result.apiStatus, 401, 'the API is closed without the code');
+  assert.equal(result.wrongCode, 401);
+  assert.equal(result.acceptedStatus, 302, 'the right code redirects in');
+  assert.ok(result.cookieIsHttpOnly, 'the cookie must not be readable from script');
+  assert.equal(result.authorisedStatus, 200);
+});
+
+test('with no access code set, nothing is gated', async () => {
+  await withServer(async (base) => {
+    assert.equal((await fetch(base + '/')).status, 200);
+    assert.equal((await fetch(base + '/api/reference')).status, 200);
+  });
+});
