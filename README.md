@@ -35,10 +35,81 @@ means one of the first two is unmet.
 
 ### A domain you own
 
-Put the bare hostname in a `CNAME` file at the repo root — `npm run
-build:site` copies it into the published output — then point the domain's DNS
-at your host and set it in that host's dashboard. Cloudflare and Namecheap
-both sell domains for roughly $10–15/year.
+`matteoblandino2004.github.io/Travel-Go` works, but it reads as a code host
+rather than a product. A domain costs roughly $10–15/year from Cloudflare
+Registrar (sells at cost) or Namecheap; `.com` is the default expectation,
+`.app` and `.travel` are the obvious alternatives if the name is taken.
+
+**1. Tell the build about it.** One line, bare hostname, no scheme or slash:
+
+```bash
+echo "travelgo.com" > CNAME
+git add CNAME && git commit -m "Serve from travelgo.com" && git push
+```
+
+That single file is the source of truth. `npm run build:site` copies it into
+the published output *and* rewrites the canonical link, the Open Graph URLs,
+the structured data and `sitemap.xml` to match — so there is no second place
+to update and no chance of a canonical tag that points at the old origin.
+
+**2. Point DNS at GitHub.** At your registrar, for the apex (`travelgo.com`),
+four `A` records — GitHub serves Pages from all four:
+
+```
+A   @   185.199.108.153
+A   @   185.199.109.153
+A   @   185.199.110.153
+A   @   185.199.111.153
+```
+
+and one record so `www` resolves too:
+
+```
+CNAME   www   matteoblandino2004.github.io.
+```
+
+On Cloudflare, set these to **DNS only** (grey cloud), not proxied — the
+orange cloud fights GitHub's own certificate issuance.
+
+**3. Turn it on.** Repo → Settings → Pages → Custom domain → enter the
+domain → Save. Wait for the DNS check to pass, then tick **Enforce HTTPS**.
+The certificate is issued by Let's Encrypt and is free; the tickbox stays
+greyed out until it has been issued, which is usually minutes but can take
+up to an hour.
+
+DNS changes propagate on their own schedule — if the check fails immediately,
+it is nearly always propagation rather than a wrong record. `dig travelgo.com
++short` should list those four addresses before you expect it to work.
+
+## Being findable
+
+A working URL is not a discoverable one. Nothing on the open web links to a
+brand-new site, so nothing leads a crawler to it, and Google will not list a
+page it has never fetched.
+
+The page ships what crawlers need: a descriptive `<title>`, a meta
+description, `robots.txt`, a `sitemap.xml`, a canonical URL, Open Graph and
+Twitter cards for link previews, and `WebApplication` structured data. Those
+are necessary but not sufficient — two manual steps do the rest, and only you
+can do them because they need ownership of the domain:
+
+- **[Google Search Console](https://search.google.com/search-console)** — add
+  the property, verify it (the DNS `TXT` record is easiest and outlives any
+  file), submit ``https://your-domain/sitemap.xml``, then use **URL
+  Inspection → Request indexing** on the homepage. This is what actually gets
+  the site into the index rather than waiting to be discovered.
+- **[Bing Webmaster Tools](https://www.bing.com/webmasters)** — same idea, and
+  it can import the Search Console setup in one step. Worth it because
+  ChatGPT and Copilot search draw on Bing's index.
+
+Expect days, not minutes, for the first listing to appear.
+
+Then set expectations honestly: a new site with no inbound links will rank
+for **its own name** once indexed, and will not rank for competitive terms
+like "cheap flights" — those are contested by companies spending heavily on
+exactly that. Searching the distinctive name is what will find it. Anything
+beyond that is ordinary SEO work over months: real inbound links, and pages
+worth linking to.
 
 ## Two ways to use it
 
@@ -293,15 +364,61 @@ which are active, and how many airports are covered.
 ---
 ## Flight data
 
-### Three ways to get real fares in
+### Four ways to get real flights in
 
 | | Effort | Cost | Coverage |
 |---|---|---|---|
 | **Paste them in** | Copy the results you're looking at, each search | Free | Whatever site you copied from |
 | **SerpApi** | Set one key, then automatic | ~$50/mo | Everything Google Flights shows |
 | **Amadeus** | Set two keys, then automatic | Free tier | Licensed GDS content |
+| **seats.aero** | Set one key, then automatic | Paid Pro plan | Award space, ~20 mileage programmes |
 
 Pasting is the one that needs nothing — see [Pasting flights in](#pasting-flights-in).
+
+The first three quote cash fares. seats.aero quotes *award* space, which is a
+different question — so it is never selected automatically over a cash
+supplier even when its key is present. Ask for it explicitly:
+
+```bash
+TRAVELGO_FLIGHT_PROVIDER=seatsaero npm start
+```
+
+### Award flights, and what it takes to rank them
+
+Award availability doesn't arrive in a form the ranker can use, and the two
+gaps are worth knowing about because both affect what you see.
+
+**Cached search has no times.** `/search` answers at the level of a route, a
+date, a programme and a cabin — "there is business space JFK→LHR on the 3rd
+via Aeroplan for 60k". It carries no departure time, arrival time, stop count
+or duration, which are four of the seven things this app ranks on. The real
+itinerary lives behind a second call, `/trips/{id}`, so each shortlisted
+result costs one more request. `SEATSAERO_TRIP_LIMIT` caps how many (default
+15, cheapest first); a row that can't be resolved is dropped and counted
+rather than ranked on absent times.
+
+**Miles have to be valued to be compared.** The cost criterion needs one
+number, and an award ticket's cash outlay is just its taxes — rank on that
+and a 120,000-mile seat looks free because the taxes are $5.60. So cost
+becomes `taxes + miles × valuation`, defaulting to 1.4¢ per mile and settable
+with `SEATSAERO_CENTS_PER_MILE`. The valuation is stated in the results note
+and on every offer, because it is an assumption doing real work in the
+ranking rather than a detail.
+
+Two smaller consequences:
+
+- **Award tickets earn nothing.** No redeemable miles, no elite credit. The
+  adapter says so explicitly, so the earning estimator doesn't derive a
+  figure from a price that is itself a valuation. Rate *Miles & points* as
+  N/A when searching award space — it is the same for every result.
+- **Lounge access still applies**, because that follows from cabin and status
+  rather than from the fare, so it is still estimated as usual.
+
+One assumption is not documented upstream: seats.aero returns taxes as an
+integer without stating the unit. They are read as minor units — `5600` is
+$56.00 — which matches every client library and the shape of real award
+taxes. If they ever arrive as whole units, set
+`SEATSAERO_TAXES_IN_CENTS=false`; nothing else changes.
 
 ### Google Flights has no API
 
