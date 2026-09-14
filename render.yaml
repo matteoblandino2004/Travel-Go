@@ -1,0 +1,29 @@
+# Deploy to Render: push this repo, then New > Blueprint and point it here.
+# Everything below is the free tier; the secrets are optional - without them
+# the app runs on generated data and the paste importer.
+services:
+  - type: web
+    name: travel-go
+    runtime: node
+    plan: free
+    # No dependencies, so nothing to install.
+    buildCommand: ''
+    startCommand: node src/server/server.js
+    healthCheckPath: /api/reference
+    envVars:
+      - key: NODE_VERSION
+        value: 22
+      # Set this and the app asks for the code once, then sets a cookie.
+      # Worth doing before you add any paid supplier key below.
+      - key: TRAVELGO_ACCESS_CODE
+        sync: false
+      - key: SERPAPI_API_KEY
+        sync: false
+      - key: AMADEUS_CLIENT_ID
+        sync: false
+      - key: AMADEUS_CLIENT_SECRET
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: GEOCODER_USER_AGENT
+        sync: false

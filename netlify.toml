@@ -1,0 +1,18 @@
+# Netlify serves static sites from private repositories on the free tier,
+# which is what GitHub Pages will not do.
+#
+# Setup: netlify.com -> Add new site -> Import an existing project -> pick this
+# repository. Everything below is picked up automatically.
+[build]
+  command = "npm run build:site"
+  publish = "_site"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+# The app is one file, so a single long-lived asset rule is all it needs.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"

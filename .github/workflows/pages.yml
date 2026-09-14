@@ -1,0 +1,73 @@
+# Publishes the standalone build to GitHub Pages.
+#
+# Two requirements before this can work, neither reachable through the API:
+#
+#  1. The repository must be PUBLIC, or the account on GitHub Pro or above.
+#     Pages is not available for private repositories on the free plan.
+#  2. Settings -> Pages -> Build and deployment -> Source: "GitHub Actions".
+#
+# It also has to run on the DEFAULT branch: enabling Pages creates a
+# `github-pages` environment that, by default, only permits deployments from
+# the default branch. Running it from a feature branch is rejected even when
+# everything else is set up correctly.
+#
+# If the repository needs to stay private, use Cloudflare Pages or Netlify
+# instead - both serve private repos free. See the README.
+name: Deploy to GitHub Pages
+
+# Only the default branch, because that is the only branch this can ever
+# succeed from: the `github-pages` environment created when Pages is enabled
+# permits deployments from the default branch alone. Running it on a feature
+# branch just hangs a permanently-red deploy check on the pull request.
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Let a run finish rather than cancelling it; deploys are quick and idempotent.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # No dependencies to install - the tests and the build are both stdlib.
+      - name: Test
+        run: npm test
+
+      - name: Build the site
+        run: npm run build:site
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    # GitHub Pages only accepts deployments from the default branch. Running
+    # this anywhere else - a manual dispatch on a feature branch, say - gets
+    # the job rejected before its first step, which surfaces as a failure with
+    # no steps and no logs and reads like a broken change. Skipping instead
+    # keeps the build's validation and states the reason here.
+    if: github.ref_name == github.event.repository.default_branch
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
