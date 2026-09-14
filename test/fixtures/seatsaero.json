@@ -1,0 +1,194 @@
+{
+  "_comment": "Shaped to the seats.aero Partner API: PascalCase keys, per-cabin Y/W/J/F fields on cached search rows, and /trips/{id} returning AvailabilityData with AvailabilitySegments. Timestamps carry a zone, as the API's do.",
+  "search": {
+    "data": [
+      {
+        "ID": "row-aeroplan-j",
+        "RouteID": "route-jfk-lhr-ac",
+        "Route": {
+          "ID": "route-jfk-lhr-ac",
+          "OriginAirport": "JFK",
+          "OriginRegion": "North America",
+          "DestinationAirport": "LHR",
+          "DestinationRegion": "Europe",
+          "NumDaysOut": 50,
+          "Distance": 3451,
+          "Source": "aeroplan"
+        },
+        "Date": "2026-11-03",
+        "ParsedDate": "2026-11-03T00:00:00Z",
+        "YAvailable": false,
+        "WAvailable": false,
+        "JAvailable": true,
+        "FAvailable": false,
+        "YMileageCost": "0",
+        "WMileageCost": "0",
+        "JMileageCost": "60000",
+        "FMileageCost": "0",
+        "YMileageCostRaw": 0,
+        "WMileageCostRaw": 0,
+        "JMileageCostRaw": 60000,
+        "FMileageCostRaw": 0,
+        "TaxesCurrency": "USD",
+        "YTotalTaxes": 0,
+        "WTotalTaxes": 0,
+        "JTotalTaxes": 5600,
+        "FTotalTaxes": 0,
+        "YRemainingSeats": 0,
+        "WRemainingSeats": 0,
+        "JRemainingSeats": 2,
+        "FRemainingSeats": 0,
+        "YAirlines": "",
+        "WAirlines": "",
+        "JAirlines": "Air Canada, Lufthansa",
+        "FAirlines": "",
+        "Source": "aeroplan",
+        "CreatedAt": "2026-09-14T06:00:00Z",
+        "UpdatedAt": "2026-09-14T11:30:00Z",
+        "AvailabilityTrips": ""
+      },
+      {
+        "ID": "row-united-y",
+        "RouteID": "route-jfk-lhr-ua",
+        "Route": {
+          "ID": "route-jfk-lhr-ua",
+          "OriginAirport": "JFK",
+          "OriginRegion": "North America",
+          "DestinationAirport": "LHR",
+          "DestinationRegion": "Europe",
+          "NumDaysOut": 50,
+          "Distance": 3451,
+          "Source": "united"
+        },
+        "Date": "2026-11-03",
+        "ParsedDate": "2026-11-03T00:00:00Z",
+        "YAvailable": true,
+        "WAvailable": false,
+        "JAvailable": false,
+        "FAvailable": false,
+        "YMileageCost": "33000",
+        "WMileageCost": "0",
+        "JMileageCost": "0",
+        "FMileageCost": "0",
+        "YMileageCostRaw": 33000,
+        "WMileageCostRaw": 0,
+        "JMileageCostRaw": 0,
+        "FMileageCostRaw": 0,
+        "TaxesCurrency": "USD",
+        "YTotalTaxes": 4120,
+        "WTotalTaxes": 0,
+        "JTotalTaxes": 0,
+        "FTotalTaxes": 0,
+        "YRemainingSeats": 5,
+        "WRemainingSeats": 0,
+        "JRemainingSeats": 0,
+        "FRemainingSeats": 0,
+        "YAirlines": "United",
+        "WAirlines": "",
+        "JAirlines": "",
+        "FAirlines": "",
+        "Source": "united",
+        "CreatedAt": "2026-09-14T06:00:00Z",
+        "UpdatedAt": "2026-09-14T11:30:00Z",
+        "AvailabilityTrips": ""
+      }
+    ],
+    "count": 2,
+    "hasMore": false,
+    "cursor": 0
+  },
+  "trips": {
+    "row-aeroplan-j": {
+      "data": [
+        {
+          "ID": "trip-ac-nonstop",
+          "RouteID": "route-jfk-lhr-ac",
+          "AvailabilityID": "row-aeroplan-j",
+          "TotalDuration": 435,
+          "Stops": 0,
+          "Carriers": "Air Canada",
+          "RemainingSeats": 2,
+          "MileageCost": 60000,
+          "TotalTaxes": 5600,
+          "TaxesCurrency": "USD",
+          "TaxesCurrencySymbol": "$",
+          "TotalSegmentDistance": 3451,
+          "FlightNumbers": "AC856",
+          "DepartsAt": "2026-11-03T22:30:00Z",
+          "ArrivesAt": "2026-11-04T10:15:00Z",
+          "Cabin": "business",
+          "Source": "aeroplan",
+          "AvailabilitySegments": [
+            {
+              "ID": "seg-ac856",
+              "FlightNumber": "AC856",
+              "Distance": 3451,
+              "FareClass": "I",
+              "AircraftName": "Boeing 787-9",
+              "AircraftCode": "789",
+              "OriginAirport": "JFK",
+              "DestinationAirport": "LHR",
+              "DepartsAt": "2026-11-03T22:30:00Z",
+              "ArrivesAt": "2026-11-04T10:15:00Z",
+              "Cabin": "business",
+              "Order": 0
+            }
+          ]
+        }
+      ]
+    },
+    "row-united-y": {
+      "data": [
+        {
+          "ID": "trip-ua-onestop",
+          "RouteID": "route-jfk-lhr-ua",
+          "AvailabilityID": "row-united-y",
+          "TotalDuration": 620,
+          "Stops": 1,
+          "Carriers": "United",
+          "RemainingSeats": 5,
+          "MileageCost": 33000,
+          "TotalTaxes": 4120,
+          "TaxesCurrency": "USD",
+          "TaxesCurrencySymbol": "$",
+          "TotalSegmentDistance": 3820,
+          "FlightNumbers": "UA904, UA34",
+          "DepartsAt": "2026-11-03T12:00:00Z",
+          "ArrivesAt": "2026-11-04T06:40:00Z",
+          "Cabin": "economy",
+          "Source": "united",
+          "AvailabilitySegments": [
+            {
+              "ID": "seg-ua904",
+              "FlightNumber": "UA904",
+              "Distance": 760,
+              "FareClass": "X",
+              "AircraftName": "Boeing 737-900",
+              "AircraftCode": "739",
+              "OriginAirport": "JFK",
+              "DestinationAirport": "ORD",
+              "DepartsAt": "2026-11-03T12:00:00Z",
+              "ArrivesAt": "2026-11-03T14:05:00Z",
+              "Cabin": "economy",
+              "Order": 0
+            },
+            {
+              "ID": "seg-ua34",
+              "FlightNumber": "UA34",
+              "Distance": 3060,
+              "FareClass": "X",
+              "AircraftName": "Boeing 777-200",
+              "AircraftCode": "772",
+              "OriginAirport": "ORD",
+              "DestinationAirport": "LHR",
+              "DepartsAt": "2026-11-03T21:50:00Z",
+              "ArrivesAt": "2026-11-04T06:40:00Z",
+              "Cabin": "economy",
+              "Order": 1
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

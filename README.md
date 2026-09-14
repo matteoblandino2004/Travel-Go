@@ -364,15 +364,61 @@ which are active, and how many airports are covered.
 ---
 ## Flight data
 
-### Three ways to get real fares in
+### Four ways to get real flights in
 
 | | Effort | Cost | Coverage |
 |---|---|---|---|
 | **Paste them in** | Copy the results you're looking at, each search | Free | Whatever site you copied from |
 | **SerpApi** | Set one key, then automatic | ~$50/mo | Everything Google Flights shows |
 | **Amadeus** | Set two keys, then automatic | Free tier | Licensed GDS content |
+| **seats.aero** | Set one key, then automatic | Paid Pro plan | Award space, ~20 mileage programmes |
 
 Pasting is the one that needs nothing — see [Pasting flights in](#pasting-flights-in).
+
+The first three quote cash fares. seats.aero quotes *award* space, which is a
+different question — so it is never selected automatically over a cash
+supplier even when its key is present. Ask for it explicitly:
+
+```bash
+TRAVELGO_FLIGHT_PROVIDER=seatsaero npm start
+```
+
+### Award flights, and what it takes to rank them
+
+Award availability doesn't arrive in a form the ranker can use, and the two
+gaps are worth knowing about because both affect what you see.
+
+**Cached search has no times.** `/search` answers at the level of a route, a
+date, a programme and a cabin — "there is business space JFK→LHR on the 3rd
+via Aeroplan for 60k". It carries no departure time, arrival time, stop count
+or duration, which are four of the seven things this app ranks on. The real
+itinerary lives behind a second call, `/trips/{id}`, so each shortlisted
+result costs one more request. `SEATSAERO_TRIP_LIMIT` caps how many (default
+15, cheapest first); a row that can't be resolved is dropped and counted
+rather than ranked on absent times.
+
+**Miles have to be valued to be compared.** The cost criterion needs one
+number, and an award ticket's cash outlay is just its taxes — rank on that
+and a 120,000-mile seat looks free because the taxes are $5.60. So cost
+becomes `taxes + miles × valuation`, defaulting to 1.4¢ per mile and settable
+with `SEATSAERO_CENTS_PER_MILE`. The valuation is stated in the results note
+and on every offer, because it is an assumption doing real work in the
+ranking rather than a detail.
+
+Two smaller consequences:
+
+- **Award tickets earn nothing.** No redeemable miles, no elite credit. The
+  adapter says so explicitly, so the earning estimator doesn't derive a
+  figure from a price that is itself a valuation. Rate *Miles & points* as
+  N/A when searching award space — it is the same for every result.
+- **Lounge access still applies**, because that follows from cabin and status
+  rather than from the fare, so it is still estimated as usual.
+
+One assumption is not documented upstream: seats.aero returns taxes as an
+integer without stating the unit. They are read as minor units — `5600` is
+$56.00 — which matches every client library and the shape of real award
+taxes. If they ever arrive as whole units, set
+`SEATSAERO_TAXES_IN_CENTS=false`; nothing else changes.
 
 ### Google Flights has no API
 

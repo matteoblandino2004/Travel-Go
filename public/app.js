@@ -422,20 +422,49 @@ function summary(ranked, total) {
  * Result rendering
  * ------------------------------------------------------------------ */
 
+/** seats.aero names programmes as slugs: "aeroplan" -> "Aeroplan". */
+function titleCaseWords(value) {
+  return String(value)
+    .replace(/[_-]+/g, ' ')
+    .replace(/\b[a-z]/g, (c) => c.toUpperCase());
+}
+
 function flightView(result) {
   const f = result.candidate;
   const estimated = new Set(f.estimatedFields ?? []);
   const shift = f.dayShift ?? (f.arrivesNextDay ? 1 : 0);
 
+  /* An award seat is bought with miles, so showing it as a dollar figure would
+   * misreport it: the cash cost is only the taxes, and the dollar number the
+   * ranking uses is a valuation. Show what is actually spent. */
+  const award = f.award === true;
+  const cost = award
+    ? [
+        'Award',
+        [
+          Number.isFinite(f.mileageCost) ? `${f.mileageCost.toLocaleString('en-US')} mi` : null,
+          Number.isFinite(f.taxesUsd) ? `+ $${Math.round(f.taxesUsd).toLocaleString('en-US')}` : null,
+        ]
+          .filter(Boolean)
+          .join(' '),
+      ]
+    : ['Fare', `$${Math.round(f.priceUsd).toLocaleString('en-US')}`];
+
   // Only show a fact the supplier actually gave us. Different suppliers carry
   // different fields, and a blank is better than "undefined".
   const facts = [
-    ['Fare', `$${Math.round(f.priceUsd).toLocaleString('en-US')}`],
+    cost,
     ['Stops', f.stops === 0 ? 'Nonstop' : `${f.stops} via ${f.layoverAirports.join(', ')}`],
-    ['Miles', f.milesEarned?.toLocaleString('en-US'), estimated.has('milesEarned')],
+    // Award tickets earn nothing, which is a fact worth stating rather than a
+    // blank or a bare "0".
+    award
+      ? ['Earns', 'Nothing']
+      : ['Miles', f.milesEarned?.toLocaleString('en-US'), estimated.has('milesEarned')],
     ['Lounge', { none: 'None', paid: 'Paid', partner: 'Partner', full: 'Included' }[f.loungeAccess],
       estimated.has('loungeAccess')],
   ];
+  if (award && f.programme) facts.push(['Programme', titleCaseWords(f.programme)]);
+  if (award && Number.isFinite(f.remainingSeats)) facts.push(['Seats', String(f.remainingSeats)]);
   if (Number.isFinite(f.onTimePct)) facts.push(['On time', `${f.onTimePct}%`]);
   if (f.oftenDelayed) facts.push(['Note', 'Often delayed 30 min+']);
   if (Number.isFinite(f.carbonKg)) facts.push(['CO₂', `${f.carbonKg.toLocaleString('en-US')} kg`]);

@@ -14,11 +14,18 @@
 import * as sample from './sample.js';
 import * as googleFlights from './serpapi.js';
 import * as amadeus from './amadeus.js';
+import * as seatsAero from './seatsaero.js';
 import { enrichOffers } from '../enrich.js';
 import { resolvePlace, describePlace } from '../airports.js';
 
-/** Real suppliers first: if a key is present, that's what the user wants used. */
-export const PROVIDERS = [googleFlights, amadeus, sample];
+/**
+ * Real suppliers first: if a key is present, that's what the user wants used.
+ *
+ * seats.aero sits after the cash suppliers deliberately. It quotes award space
+ * in miles rather than fares, so it answers a different question - pick it
+ * explicitly with TRAVELGO_FLIGHT_PROVIDER=seatsaero.
+ */
+export const PROVIDERS = [googleFlights, amadeus, seatsAero, sample];
 const BY_ID = new Map(PROVIDERS.map((p) => [p.id, p]));
 
 const DEFAULT_TIMEOUT_MS = 20000;
@@ -173,6 +180,9 @@ export async function searchFlights(query, opts = {}) {
   }
 
   const offers = enrichOffers(result.offers, query.profile ?? {});
+  // A supplier may need to say something about how to read its numbers - how
+  // award miles were valued, say. That belongs with the results, not in a log.
+  if (result.note) notes.push(result.note);
   if (result.dropped?.length) {
     notes.push(`${result.dropped.length} offer(s) from ${result.label} were unusable and skipped.`);
   }
