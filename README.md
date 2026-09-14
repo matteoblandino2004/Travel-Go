@@ -35,10 +35,81 @@ means one of the first two is unmet.
 
 ### A domain you own
 
-Put the bare hostname in a `CNAME` file at the repo root — `npm run
-build:site` copies it into the published output — then point the domain's DNS
-at your host and set it in that host's dashboard. Cloudflare and Namecheap
-both sell domains for roughly $10–15/year.
+`matteoblandino2004.github.io/Travel-Go` works, but it reads as a code host
+rather than a product. A domain costs roughly $10–15/year from Cloudflare
+Registrar (sells at cost) or Namecheap; `.com` is the default expectation,
+`.app` and `.travel` are the obvious alternatives if the name is taken.
+
+**1. Tell the build about it.** One line, bare hostname, no scheme or slash:
+
+```bash
+echo "travelgo.com" > CNAME
+git add CNAME && git commit -m "Serve from travelgo.com" && git push
+```
+
+That single file is the source of truth. `npm run build:site` copies it into
+the published output *and* rewrites the canonical link, the Open Graph URLs,
+the structured data and `sitemap.xml` to match — so there is no second place
+to update and no chance of a canonical tag that points at the old origin.
+
+**2. Point DNS at GitHub.** At your registrar, for the apex (`travelgo.com`),
+four `A` records — GitHub serves Pages from all four:
+
+```
+A   @   185.199.108.153
+A   @   185.199.109.153
+A   @   185.199.110.153
+A   @   185.199.111.153
+```
+
+and one record so `www` resolves too:
+
+```
+CNAME   www   matteoblandino2004.github.io.
+```
+
+On Cloudflare, set these to **DNS only** (grey cloud), not proxied — the
+orange cloud fights GitHub's own certificate issuance.
+
+**3. Turn it on.** Repo → Settings → Pages → Custom domain → enter the
+domain → Save. Wait for the DNS check to pass, then tick **Enforce HTTPS**.
+The certificate is issued by Let's Encrypt and is free; the tickbox stays
+greyed out until it has been issued, which is usually minutes but can take
+up to an hour.
+
+DNS changes propagate on their own schedule — if the check fails immediately,
+it is nearly always propagation rather than a wrong record. `dig travelgo.com
++short` should list those four addresses before you expect it to work.
+
+## Being findable
+
+A working URL is not a discoverable one. Nothing on the open web links to a
+brand-new site, so nothing leads a crawler to it, and Google will not list a
+page it has never fetched.
+
+The page ships what crawlers need: a descriptive `<title>`, a meta
+description, `robots.txt`, a `sitemap.xml`, a canonical URL, Open Graph and
+Twitter cards for link previews, and `WebApplication` structured data. Those
+are necessary but not sufficient — two manual steps do the rest, and only you
+can do them because they need ownership of the domain:
+
+- **[Google Search Console](https://search.google.com/search-console)** — add
+  the property, verify it (the DNS `TXT` record is easiest and outlives any
+  file), submit ``https://your-domain/sitemap.xml``, then use **URL
+  Inspection → Request indexing** on the homepage. This is what actually gets
+  the site into the index rather than waiting to be discovered.
+- **[Bing Webmaster Tools](https://www.bing.com/webmasters)** — same idea, and
+  it can import the Search Console setup in one step. Worth it because
+  ChatGPT and Copilot search draw on Bing's index.
+
+Expect days, not minutes, for the first listing to appear.
+
+Then set expectations honestly: a new site with no inbound links will rank
+for **its own name** once indexed, and will not rank for competitive terms
+like "cheap flights" — those are contested by companies spending heavily on
+exactly that. Searching the distinctive name is what will find it. Anything
+beyond that is ordinary SEO work over months: real inbound links, and pages
+worth linking to.
 
 ## Two ways to use it
 

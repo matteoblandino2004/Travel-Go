@@ -36,16 +36,36 @@ const body = html
   .replace(/\n\s*<script type="module" src="\/app\.js"><\/script>/, '')
   .trim();
 
-const title = /<title>([^<]+)<\/title>/.exec(html)?.[1] ?? 'Travel-Go';
+/* The real <head>, carried through rather than rebuilt.
+ *
+ * This used to hand-assemble a head from the <title> alone, which silently
+ * dropped everything else the served page declares. The build had drifted
+ * badly as a result: no viewport (so phones laid the page out at ~980px and
+ * scaled it down), no charset, no favicon, no description, and a font link
+ * naming families the stylesheet does not use. Anything that belongs in the
+ * head now belongs in public/index.html, once, and arrives here by itself.
+ *
+ * Only the local stylesheet link is removed, because the CSS is inlined below
+ * and there is no /styles.css to fetch in a single-file build. */
+const head = html
+  .slice(html.indexOf('<head>') + '<head>'.length, html.indexOf('</head>'))
+  .replace(/\n\s*<link rel="stylesheet" href="\/styles\.css"\s*\/?>/, '')
+  // Authoring notes are for whoever edits the page, not for whoever views it.
+  .replace(/<!--[\s\S]*?-->/g, '')
+  .replace(/\n{3,}/g, '\n\n')
+  .trim();
 
-const page = `<title>${title}</title>
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" />
+const lang = /<html[^>]*\blang="([^"]+)"/.exec(html)?.[1] ?? 'en';
+
+const page = `<!doctype html>
+<html lang="${lang}">
+<head>
+${head}
 <style>
 ${css}
 </style>
-
+</head>
+<body>
 ${body}
 
 <script type="application/json" id="airport-data">${airports}</script>
@@ -59,6 +79,8 @@ const airportData = JSON.parse(document.getElementById('airport-data').textConte
 globalThis.TRAVELGO_BACKEND = __require('public/local-backend.js').createLocalBackend(airportData);
 __require('public/app.js');
 </script>
+</body>
+</html>
 `;
 
 fs.mkdirSync(path.join(root, 'dist'), { recursive: true });

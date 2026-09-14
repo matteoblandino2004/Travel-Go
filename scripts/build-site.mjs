@@ -33,7 +33,58 @@ fs.writeFileSync(path.join(out, '.nojekyll'), '');
 // published site; the other hosts take the domain from their own dashboard and
 // simply ignore the file.
 const cname = path.join(root, 'CNAME');
-if (fs.existsSync(cname)) fs.copyFileSync(cname, path.join(out, 'CNAME'));
+const domain = fs.existsSync(cname) ? fs.readFileSync(cname, 'utf8').trim() : '';
+if (domain) fs.copyFileSync(cname, path.join(out, 'CNAME'));
+
+/* One origin, derived once and used for the canonical link, the Open Graph
+ * URLs, the structured data and the sitemap. A wrong canonical is worse than
+ * none - it tells Google the real page lives somewhere else - so this is
+ * deliberately not hand-maintained in the markup.
+ *
+ *   CNAME present  -> https://<that domain>/         (the custom domain wins)
+ *   SITE_URL set   -> whatever it says               (staging, forks)
+ *   neither        -> the github.io project URL
+ */
+const FALLBACK_URL = 'https://matteoblandino2004.github.io/Travel-Go/';
+const siteUrl = (domain ? `https://${domain}/` : process.env.SITE_URL || FALLBACK_URL)
+  .replace(/\/*$/, '/');
+
+const indexPath = path.join(out, 'index.html');
+let html = fs.readFileSync(indexPath, 'utf8');
+const before = html;
+html = html.replaceAll(FALLBACK_URL, siteUrl);
+fs.writeFileSync(indexPath, html);
+
+// Copy the social preview image through, if present.
+const og = path.join(root, 'public', 'og.png');
+if (fs.existsSync(og)) fs.copyFileSync(og, path.join(out, 'og.png'));
+
+// Crawler essentials. Without these the site is reachable but effectively
+// unlisted: nothing points a crawler at it and nothing declares what to index.
+fs.writeFileSync(
+  path.join(out, 'robots.txt'),
+  ['User-agent: *', 'Allow: /', '', `Sitemap: ${siteUrl}sitemap.xml`, ''].join('\n'),
+);
+
+fs.writeFileSync(
+  path.join(out, 'sitemap.xml'),
+  `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>${siteUrl}</loc>
+    <lastmod>${new Date().toISOString().slice(0, 10)}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+</urlset>
+`,
+);
+
+console.log(
+  `Site origin: ${siteUrl}` +
+    (domain ? '  (from CNAME)' : process.env.SITE_URL ? '  (from SITE_URL)' : '  (default)'),
+);
+if (before !== html) console.log('Rewrote canonical, Open Graph and structured-data URLs.');
 
 const bytes = fs.statSync(path.join(out, 'index.html')).size;
 console.log(`Wrote _site/ — index.html is ${(bytes / 1024 / 1024).toFixed(2)} MB`);

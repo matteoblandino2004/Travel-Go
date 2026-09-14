@@ -3,11 +3,48 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Travel-Go</title>
+  <title>Travel-Go — flights and hotels ranked by your priorities</title>
   <meta name="description" content="Rate what matters 1–5 and get flights and hotels ranked against your priorities, not a default one." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" />
+  <meta name="robots" content="index, follow, max-image-preview:large" />
+  <meta name="theme-color" content="#05070a" />
+
+  <!-- Absolute URLs below are rewritten by scripts/build-site.mjs to match the
+       deployed origin: the custom domain in CNAME when one is set, otherwise
+       the github.io project URL. The dev server just serves these defaults. -->
+  <link rel="canonical" href="https://matteoblandino2004.github.io/Travel-Go/" />
+
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Travel-Go" />
+  <meta property="og:title" content="Travel-Go — flights and hotels ranked by what you actually care about" />
+  <meta property="og:description" content="Rate cost, departure time, layovers, miles, lounge access and more from 1 to 5, or N/A to drop one entirely. Every result shows exactly why it ranked where it did." />
+  <meta property="og:url" content="https://matteoblandino2004.github.io/Travel-Go/" />
+  <meta property="og:image" content="https://matteoblandino2004.github.io/Travel-Go/og.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="Travel-Go ranking flights against user-set priorities." />
+
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Travel-Go — flights and hotels ranked by what you actually care about" />
+  <meta name="twitter:description" content="Rate what matters 1-5, or N/A to ignore it. Flights and hotels scored against your weights, with the reasoning shown." />
+  <meta name="twitter:image" content="https://matteoblandino2004.github.io/Travel-Go/og.png" />
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "Travel-Go",
+    "url": "https://matteoblandino2004.github.io/Travel-Go/",
+    "applicationCategory": "TravelApplication",
+    "operatingSystem": "Any",
+    "browserRequirements": "Requires JavaScript",
+    "description": "Rate cost, departure time, layovers, miles, lounge access and more from 1 to 5, or N/A to drop a criterion entirely. Flights and hotels are scored against those weights and every result shows why it ranked where it did.",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+  }
+  </script>
+
   <link rel="stylesheet" href="/styles.css" />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='13' font-size='13'>✈️</text></svg>" />
 </head>
